@@ -1,12 +1,17 @@
 /**
- * Divide uma compra parcelada em N lançamentos, um por mês.
+ * Gera as N parcelas de uma compra parcelada, uma por mês.
  *
- * Duas coisas exigem cuidado com dinheiro e datas:
- * - A soma das parcelas tem que bater exatamente com o total (nada de
- *   sobrar ou faltar um centavo por causa de arredondamento). A diferença
- *   fica na primeira parcela, como nas faturas de cartão.
- * - Comprar dia 31 e cair num mês sem dia 31 (fevereiro, por exemplo) não
- *   pode quebrar; a parcela cai no último dia daquele mês.
+ * De propósito NÃO existe divisão de valor aqui. A pessoa diz quanto é
+ * *cada* parcela (é o número que aparece na fatura todo mês); as N linhas
+ * saem com exatamente esse valor, sem exceção. Dividir um total em N partes
+ * sempre obriga a decidir onde colocar o centavo que sobra — e por ser
+ * dinheiro, cada centavo importa, então essa decisão não é nossa para tomar.
+ *
+ * A única conta que resta é multiplicação (valor × N para mostrar o total),
+ * que nunca perde nem inventa centavo.
+ *
+ * Datas exigem cuidado: comprar dia 31 e cair num mês sem dia 31 (fevereiro,
+ * por exemplo) não pode quebrar; a parcela cai no último dia daquele mês.
  */
 
 export interface Installment {
@@ -42,29 +47,31 @@ export function addMonthsClamped(dateISO: string, months: number): string {
 }
 
 /**
- * Divide `totalCents` em `count` parcelas mensais a partir de `firstOccurredOn`.
- * A diferença de arredondamento (quando totalCents não é múltiplo de count)
- * fica toda na primeira parcela.
+ * Monta as `count` parcelas de `amountCentsPerInstallment` cada, a partir de
+ * `firstOccurredOn`. Todas as parcelas valem exatamente o mesmo — nenhuma
+ * fica maior nem menor que as outras.
  */
-export function splitInstallments(
-  totalCents: number,
+export function buildInstallments(
+  amountCentsPerInstallment: number,
   count: number,
   firstOccurredOn: string,
 ): Installment[] {
   if (!isValidInstallmentCount(count)) {
     throw new Error(`Número de parcelas inválido: ${count}`);
   }
-  if (!Number.isInteger(totalCents) || totalCents <= 0) {
-    throw new Error(`Valor total inválido: ${totalCents}`);
+  if (!Number.isInteger(amountCentsPerInstallment) || amountCentsPerInstallment <= 0) {
+    throw new Error(`Valor da parcela inválido: ${amountCentsPerInstallment}`);
   }
 
-  const base = Math.floor(totalCents / count);
-  const remainder = totalCents - base * count;
-
   return Array.from({ length: count }, (_, index) => ({
-    amountCents: index === 0 ? base + remainder : base,
+    amountCents: amountCentsPerInstallment,
     occurredOn: addMonthsClamped(firstOccurredOn, index),
     installmentNo: index + 1,
     installmentTotal: count,
   }));
+}
+
+/** Total da compra: só multiplicação, nunca perde ou inventa centavo. */
+export function totalOfInstallments(amountCentsPerInstallment: number, count: number): number {
+  return amountCentsPerInstallment * count;
 }

@@ -10,7 +10,7 @@ import {
   useUpdateTransaction,
   type TransactionInput,
 } from '@/hooks/use-month-data';
-import { isValidInstallmentCount, splitInstallments } from '@/lib/installments';
+import { buildInstallments, isValidInstallmentCount, totalOfInstallments } from '@/lib/installments';
 import { formatCents, maskAmountInput, parseAmountToCents } from '@/lib/money';
 import { todayISO } from '@/lib/month';
 import type { Category, Kind, Transaction } from '@/lib/types';
@@ -65,8 +65,10 @@ export function TransactionSheet({
   const isNewExpense = !editing && kind === 'expense';
   const willParcel = isNewExpense && parceling && isValidInstallmentCount(installments);
 
+  // `amount` já É o valor de cada parcela aqui -- nada é dividido. O total
+  // (mostrado abaixo) é só multiplicação, então nunca perde nem inventa centavo.
   const preview =
-    willParcel && amountCents > 0 ? splitInstallments(amountCents, installments, date) : null;
+    willParcel && amountCents > 0 ? buildInstallments(amountCents, installments, date) : null;
 
   const pending =
     createTransaction.isPending ||
@@ -84,7 +86,7 @@ export function TransactionSheet({
     if (willParcel) {
       createInstallmentPurchase.mutate(
         {
-          totalCents: amountCents,
+          amountCentsPerInstallment: amountCents,
           installmentCount: installments,
           firstOccurredOn: date,
           categoryId,
@@ -166,7 +168,7 @@ export function TransactionSheet({
         {/* Valor */}
         <div>
           <label htmlFor="valor" className="mb-1.5 block text-sm font-medium text-muted">
-            {willParcel ? 'Valor total da compra' : 'Valor'}
+            {willParcel ? 'Valor de cada parcela' : 'Valor'}
           </label>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted">
@@ -231,11 +233,11 @@ export function TransactionSheet({
 
                 {preview && (
                   <p className="mt-2.5 text-sm text-muted">
-                    {/* `installments` é sempre >= 2 aqui, então preview[1] sempre existe. */}
-                    {preview.length}x de {formatCents(preview[1].amountCents)}
-                    {preview[0].amountCents !== preview[1].amountCents &&
-                      ` (a primeira de ${formatCents(preview[0].amountCents)})`}
-                    , começando em {preview[0].occurredOn.split('-').reverse().join('/')}.
+                    {preview.length}x de {formatCents(amountCents)} ={' '}
+                    <strong className="text-text">
+                      {formatCents(totalOfInstallments(amountCents, installments))}
+                    </strong>{' '}
+                    no total, começando em {preview[0].occurredOn.split('-').reverse().join('/')}.
                   </p>
                 )}
               </div>

@@ -13,9 +13,10 @@ pode ser adicionado à tela inicial com ícone próprio.
 - **Lançamentos** de despesa e receita, com criação de categoria na hora — a
   categoria nova já fica selecionada e aparece nos próximos lançamentos.
   Tocar num lançamento edita ou apaga.
-- **Despesa parcelada**: divide o valor total em até 24x, uma parcela por mês,
-  com a diferença de arredondamento (se houver) na primeira. Dá para apagar
-  só uma parcela ou "esta e as seguintes".
+- **Despesa parcelada**: você digita o valor de cada parcela (o número que
+  vai aparecer todo mês) e o número de parcelas, até 24x. Nenhum valor é
+  dividido nem arredondado — todas as parcelas saem idênticas, uma por mês.
+  Dá para apagar só uma parcela ou "esta e as seguintes".
 - **Contas a pagar** numa aba própria: toca no botão, ela fica verde com um
   check.
 - **Exportar** o mês em planilha (`.xlsx`) e em PDF.
