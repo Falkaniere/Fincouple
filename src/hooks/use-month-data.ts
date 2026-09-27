@@ -109,13 +109,20 @@ export function useCreateTransaction(coupleId: string | undefined) {
 export interface InstallmentPurchaseInput {
   /** Valor de CADA parcela -- não é dividido, todas saem com este valor. */
   amountCentsPerInstallment: number;
+  /** Total de parcelas da compra (não só as que vão ser criadas agora). */
   installmentCount: number;
+  /**
+   * Número da primeira parcela a criar. Maior que 1 quando a compra já vinha
+   * sendo paga antes de entrar no app -- só cria as parcelas que faltam, já
+   * com a numeração certa (ex.: começar na 8ª de 12 cria 8, 9, 10, 11 e 12).
+   */
+  startInstallmentNo: number;
   firstOccurredOn: string;
   categoryId: string | null;
   description: string | null;
   /**
-   * Mês da fatura da primeira parcela, se diferente do mês da data. As
-   * parcelas seguintes andam a partir daí, um mês de cada vez -- do mesmo
+   * Mês da fatura da primeira parcela criada, se diferente do mês da data.
+   * As parcelas seguintes andam a partir daí, um mês de cada vez -- do mesmo
    * jeito que a data de cada parcela já anda.
    */
   firstBillingMonth: MonthKey | null;
@@ -140,6 +147,7 @@ export function useCreateInstallmentPurchase(coupleId: string | undefined) {
         input.amountCentsPerInstallment,
         input.installmentCount,
         input.firstOccurredOn,
+        input.startInstallmentNo,
       );
 
       const { error } = await supabase.from('transactions').insert(
@@ -189,6 +197,72 @@ export function useDeleteInstallmentsFrom() {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+  });
+}
+
+/**
+ * Corrige a numeração de uma compra parcelada inteira -- as parcelas que já
+ * passaram e as que ainda vêm, todas de uma vez. Serve para os dois casos
+ * mais comuns de numeração errada: uma compra lançada com o total errado, ou
+ * uma compra que já vinha sendo paga antes de entrar no app e ficou marcada
+ * como "1 de N" em vez do número real.
+ *
+ * Desloca `installment_no` de cada parcela do grupo pela mesma diferença
+ * entre o número antigo e o novo da parcela editada, e atualiza
+ * `installment_total` para todas. Cada linha valida sozinha (o banco exige
+ * `installment_no` entre 1 e o total), então nenhuma parcela pode ficar fora
+ * do intervalo depois da correção.
+ */
+export function useRenumberInstallments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      group,
+      oldNo,
+      newNo,
+      newTotal,
+    }: {
+      group: string;
+      oldNo: number;
+      newNo: number;
+      newTotal: number;
+    }) => {
+      const supabase = getSupabaseBrowserClient();
+      const delta = newNo - oldNo;
+
+      const { data: siblings, error: fetchError } = await supabase
+        .from('transactions')
+        .select('id, installment_no')
+        .eq('installment_group', group);
+      if (fetchError) throw fetchError;
+
+      const updates = (siblings ?? []).map((row) => ({
+        id: row.id as string,
+        installment_no: (row.installment_no as number) + delta,
+      }));
+
+      if (updates.some((u) => u.installment_no < 1 || u.installment_no > newTotal)) {
+        throw new Error(
+          'Essa numeração deixaria alguma parcela fora do intervalo. Ajuste o total ou o número.',
+        );
+      }
+
+      const results = await Promise.all(
+        updates.map((u) =>
+          supabase
+            .from('transactions')
+            .update({ installment_no: u.installment_no, installment_total: newTotal })
+            .eq('id', u.id),
+        ),
+      );
+
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    },
+    // Mesmo numa falha parcial, atualiza a tela com o que já foi salvo --
+    // dá para ver o que faltou e tentar de novo.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['transactions'] }),
   });
 }
 

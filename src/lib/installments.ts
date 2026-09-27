@@ -46,28 +46,41 @@ export function addMonthsClamped(dateISO: string, months: number): string {
   return `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`;
 }
 
+export function isValidStartingInstallment(startAt: number, total: number): boolean {
+  return Number.isInteger(startAt) && startAt >= 1 && startAt <= total;
+}
+
 /**
- * Monta as `count` parcelas de `amountCentsPerInstallment` cada, a partir de
- * `firstOccurredOn`. Todas as parcelas valem exatamente o mesmo — nenhuma
- * fica maior nem menor que as outras.
+ * Monta as parcelas de `amountCentsPerInstallment` cada, do número `startAt`
+ * até `total` (por padrão, desde a 1ª), a partir de `firstOccurredOn`. Todas
+ * valem exatamente o mesmo -- nenhuma fica maior nem menor que as outras.
+ *
+ * `startAt` serve para lançar uma compra que já vinha sendo paga antes de
+ * usar o app: dizendo que já é a 8ª de 12, ele só cria as parcelas que faltam
+ * (8 a 12), com a numeração certa desde a primeira.
  */
 export function buildInstallments(
   amountCentsPerInstallment: number,
-  count: number,
+  total: number,
   firstOccurredOn: string,
+  startAt: number = 1,
 ): Installment[] {
-  if (!isValidInstallmentCount(count)) {
-    throw new Error(`Número de parcelas inválido: ${count}`);
+  if (!isValidInstallmentCount(total)) {
+    throw new Error(`Número de parcelas inválido: ${total}`);
+  }
+  if (!isValidStartingInstallment(startAt, total)) {
+    throw new Error(`Parcela inicial inválida: ${startAt} de ${total}`);
   }
   if (!Number.isInteger(amountCentsPerInstallment) || amountCentsPerInstallment <= 0) {
     throw new Error(`Valor da parcela inválido: ${amountCentsPerInstallment}`);
   }
 
-  return Array.from({ length: count }, (_, index) => ({
+  const remaining = total - startAt + 1;
+  return Array.from({ length: remaining }, (_, index) => ({
     amountCents: amountCentsPerInstallment,
     occurredOn: addMonthsClamped(firstOccurredOn, index),
-    installmentNo: index + 1,
-    installmentTotal: count,
+    installmentNo: startAt + index,
+    installmentTotal: total,
   }));
 }
 

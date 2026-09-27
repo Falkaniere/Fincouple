@@ -16,7 +16,12 @@ pode ser adicionado à tela inicial com ícone próprio.
 - **Despesa parcelada**: você digita o valor de cada parcela (o número que
   vai aparecer todo mês) e o número de parcelas, até 24x. Nenhum valor é
   dividido nem arredondado — todas as parcelas saem idênticas, uma por mês.
-  Dá para apagar só uma parcela ou "esta e as seguintes".
+  Dá para apagar só uma parcela ou "esta e as seguintes". Comprou algo que já
+  vinha sendo pago antes de usar o app? Marque "Já vinha pagando antes de
+  lançar aqui" e diga em que parcela está (ex.: 8ª de 12) — só cria as que
+  faltam, com a numeração certa. E se o número ficou errado num lançamento
+  já feito, corrigir a numeração na edição ajusta a compra inteira, parcelas
+  passadas e futuras.
 - **Mês da fatura**: para despesas de cartão, marca "É despesa de cartão de
   crédito" e escolhe em que mês ela deve contar — útil quando a fatura já
   fechou e o gasto de hoje só vai aparecer na fatura do mês seguinte. Como
