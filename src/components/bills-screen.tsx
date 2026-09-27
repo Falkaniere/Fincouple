@@ -3,13 +3,20 @@
 import { useMemo, useState } from 'react';
 
 import { useApp } from './app-shell';
-import { useBills, useCreateBill, useDeleteBill, useToggleBillPaid } from '@/hooks/use-bills';
+import {
+  useBills,
+  useCreateBill,
+  useDeleteBill,
+  useToggleBillPaid,
+  useUpdateBill,
+} from '@/hooks/use-bills';
 import { formatCents, maskAmountInput, parseAmountToCents } from '@/lib/money';
+import type { Bill } from '@/lib/types';
 import { todayISO } from '@/lib/month';
 import { BillRow } from './bill-row';
 import { Sheet } from './sheet';
 import { Button, EmptyState, Field, Input, Notice, Spinner } from './ui';
-import { PlusIcon } from './icons';
+import { PlusIcon, TrashIcon } from './icons';
 
 export function BillsScreen() {
   const { couple } = useApp();
@@ -18,6 +25,17 @@ export function BillsScreen() {
   const deleteBill = useDeleteBill();
 
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [editingBill, setEditingBill] = useState<Bill | null>(null);
+
+  function openEdit(bill: Bill) {
+    setEditingBill(bill);
+    setSheetOpen(true);
+  }
+
+  function openNew() {
+    setEditingBill(null);
+    setSheetOpen(true);
+  }
 
   const { open, paid, openTotal } = useMemo(() => {
     const all = bills ?? [];
@@ -71,6 +89,7 @@ export function BillsScreen() {
                           key={bill.id}
                           bill={bill}
                           onTogglePaid={() => togglePaid.mutate({ bill })}
+                          onEdit={() => openEdit(bill)}
                           onDelete={() => deleteBill.mutate(bill.id)}
                         />
                       ))}
@@ -90,6 +109,7 @@ export function BillsScreen() {
                           key={bill.id}
                           bill={bill}
                           onTogglePaid={() => togglePaid.mutate({ bill })}
+                          onEdit={() => openEdit(bill)}
                           onDelete={() => deleteBill.mutate(bill.id)}
                         />
                       ))}
@@ -104,43 +124,71 @@ export function BillsScreen() {
 
       <button
         type="button"
-        onClick={() => setSheetOpen(true)}
+        onClick={openNew}
         aria-label="Nova conta"
         className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-20 flex size-14 items-center justify-center rounded-full bg-brand text-white shadow-lg shadow-black/20 transition-transform active:scale-95"
       >
         <PlusIcon className="size-7" />
       </button>
 
-      {/* Montar só quando aberta faz o formulário nascer limpo a cada vez. */}
-      {sheetOpen && <BillSheet onClose={() => setSheetOpen(false)} />}
+      {/* A `key` faz a folha remontar ao trocar de conta, então o formulário
+          já nasce com os valores certos -- sem efeito de sincronização. */}
+      {sheetOpen && (
+        <BillSheet
+          key={editingBill?.id ?? 'nova'}
+          editing={editingBill}
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
     </>
   );
 }
 
-function BillSheet({ onClose }: { onClose: () => void }) {
+/**
+ * Folha de conta. Monta com uma `key` por conta (veja BillsScreen), então o
+ * estado nasce certo pelos inicializadores do useState -- sem efeito de
+ * sincronização, como recomenda a documentação do React.
+ */
+function BillSheet({
+  editing,
+  onClose,
+}: {
+  /** Quando vem preenchido, a folha edita em vez de criar. */
+  editing: Bill | null;
+  onClose: () => void;
+}) {
   const { couple } = useApp();
   const createBill = useCreateBill(couple.id);
+  const updateBill = useUpdateBill();
+  const deleteBill = useDeleteBill();
 
-  const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [dueDate, setDueDate] = useState(() => todayISO());
+  const [title, setTitle] = useState(editing?.title ?? '');
+  const [amount, setAmount] = useState(() =>
+    editing ? maskAmountInput(String(editing.amount_cents)) : '',
+  );
+  const [dueDate, setDueDate] = useState(() => editing?.due_date ?? todayISO());
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const amountCents = parseAmountToCents(amount);
+  const pending = createBill.isPending || updateBill.isPending || deleteBill.isPending;
+  const failed = createBill.isError || updateBill.isError;
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!title.trim()) return;
+
+    const input = { title, amountCents, dueDate, categoryId: editing?.category_id ?? null };
+
+    if (editing) {
+      updateBill.mutate({ id: editing.id, input }, { onSuccess: onClose });
+    } else {
+      createBill.mutate(input, { onSuccess: onClose });
+    }
+  }
 
   return (
-    <Sheet open title="Nova conta" onClose={onClose}>
-      <form
-        className="space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!title.trim()) return;
-
-          createBill.mutate(
-            { title, amountCents, dueDate, categoryId: null },
-            { onSuccess: onClose },
-          );
-        }}
-      >
+    <Sheet open title={editing ? 'Editar conta' : 'Nova conta'} onClose={onClose}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
         <Field label="Conta">
           <Input
             value={title}
@@ -176,17 +224,56 @@ function BillSheet({ onClose }: { onClose: () => void }) {
           />
         </Field>
 
-        {createBill.isError && <Notice>Não deu para salvar. Tente de novo.</Notice>}
+        {failed && <Notice>Não deu para salvar. Confira a conexão e tente de novo.</Notice>}
 
         <Button
           type="submit"
           size="lg"
           className="w-full"
-          loading={createBill.isPending}
-          disabled={!title.trim()}
+          loading={pending}
+          disabled={!title.trim() || amountCents <= 0}
         >
-          Adicionar conta
+          {editing ? 'Salvar alterações' : 'Adicionar conta'}
         </Button>
+
+        {editing && (
+          <div className="border-t border-border pt-4">
+            {confirmingDelete ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted">Apagar esta conta?</p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => setConfirmingDelete(false)}
+                  >
+                    Manter
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    className="flex-1"
+                    loading={deleteBill.isPending}
+                    onClick={() => deleteBill.mutate(editing.id, { onSuccess: onClose })}
+                  >
+                    Apagar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-negative"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                <TrashIcon className="size-4" />
+                Apagar conta
+              </Button>
+            )}
+          </div>
+        )}
       </form>
     </Sheet>
   );

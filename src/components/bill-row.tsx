@@ -23,10 +23,12 @@ function dueLabel(bill: Bill): { text: string; late: boolean } {
 export function BillRow({
   bill,
   onTogglePaid,
+  onEdit,
   onDelete,
 }: {
   bill: Bill;
   onTogglePaid: () => void;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const paid = bill.paid_at !== null;
@@ -55,23 +57,31 @@ export function BillRow({
         <CheckIcon className="size-5" />
       </button>
 
-      <div className="min-w-0 flex-1">
-        <p className={cx('truncate font-medium', paid && 'text-muted line-through')}>
-          {bill.title}
-        </p>
-        <p
-          className={cx(
-            'truncate text-xs',
-            paid ? 'text-positive' : due.late ? 'text-negative font-medium' : 'text-muted',
-          )}
-        >
-          {paid ? 'Paga' : due.text}
-        </p>
-      </div>
+      {/* Cadastrou errado? Toca aqui para corrigir, sem apagar e recriar. */}
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`Editar ${bill.title}`}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-1 text-left active:opacity-70"
+      >
+        <span className="min-w-0 flex-1">
+          <span className={cx('block truncate font-medium', paid && 'text-muted line-through')}>
+            {bill.title}
+          </span>
+          <span
+            className={cx(
+              'block truncate text-xs',
+              paid ? 'text-positive' : due.late ? 'text-negative font-medium' : 'text-muted',
+            )}
+          >
+            {paid ? 'Paga' : due.text}
+          </span>
+        </span>
 
-      <p className={cx('shrink-0 font-semibold', paid && 'text-muted line-through')}>
-        {formatCents(bill.amount_cents)}
-      </p>
+        <span className={cx('shrink-0 font-semibold', paid && 'text-muted line-through')}>
+          {formatCents(bill.amount_cents)}
+        </span>
+      </button>
 
       <button
         type="button"
