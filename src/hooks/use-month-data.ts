@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import { monthStart, nextMonthStart, type MonthKey } from '@/lib/month';
+import { monthStart, shiftMonth, type MonthKey } from '@/lib/month';
 import { buildInstallments } from '@/lib/installments';
 import { summarizeMonth, type MonthSummary } from '@/lib/summary';
 import type { Category, Kind, Transaction } from '@/lib/types';
@@ -45,9 +45,10 @@ export function useTransactions(coupleId: string | undefined, month: MonthKey) {
         .from('transactions')
         .select('*')
         .eq('couple_id', coupleId!)
-        // Intervalo meio aberto: pega o mês inteiro sem errar fevereiro.
-        .gte('occurred_on', monthStart(month))
-        .lt('occurred_on', nextMonthStart(month))
+        // `effective_month` já resolve o mês certo sozinho: cai no
+        // billing_month quando existe (compra de cartão contada em outro
+        // mês por causa da fatura), senão no mês da própria data.
+        .eq('effective_month', monthStart(month))
         .order('occurred_on', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -76,6 +77,8 @@ export interface TransactionInput {
   occurredOn: string;
   categoryId: string | null;
   description: string | null;
+  /** Mês em que o lançamento deve contar, se diferente do mês da data. */
+  billingMonth: MonthKey | null;
 }
 
 export function useCreateTransaction(coupleId: string | undefined) {
@@ -94,6 +97,7 @@ export function useCreateTransaction(coupleId: string | undefined) {
         category_id: input.categoryId,
         description: input.description,
         created_by: auth.user?.id ?? null,
+        billing_month: input.billingMonth ? monthStart(input.billingMonth) : null,
       });
 
       if (error) throw error;
@@ -109,6 +113,12 @@ export interface InstallmentPurchaseInput {
   firstOccurredOn: string;
   categoryId: string | null;
   description: string | null;
+  /**
+   * Mês da fatura da primeira parcela, se diferente do mês da data. As
+   * parcelas seguintes andam a partir daí, um mês de cada vez -- do mesmo
+   * jeito que a data de cada parcela já anda.
+   */
+  firstBillingMonth: MonthKey | null;
 }
 
 /**
@@ -133,7 +143,7 @@ export function useCreateInstallmentPurchase(coupleId: string | undefined) {
       );
 
       const { error } = await supabase.from('transactions').insert(
-        parts.map((part) => ({
+        parts.map((part, index) => ({
           couple_id: coupleId!,
           kind: 'expense' as const,
           amount_cents: part.amountCents,
@@ -144,6 +154,9 @@ export function useCreateInstallmentPurchase(coupleId: string | undefined) {
           installment_group: group,
           installment_no: part.installmentNo,
           installment_total: part.installmentTotal,
+          billing_month: input.firstBillingMonth
+            ? monthStart(shiftMonth(input.firstBillingMonth, index))
+            : null,
         })),
       );
 
@@ -193,6 +206,7 @@ export function useUpdateTransaction() {
           occurred_on: input.occurredOn,
           category_id: input.categoryId,
           description: input.description,
+          billing_month: input.billingMonth ? monthStart(input.billingMonth) : null,
         })
         .eq('id', id);
 

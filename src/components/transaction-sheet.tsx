@@ -12,7 +12,7 @@ import {
 } from '@/hooks/use-month-data';
 import { buildInstallments, isValidInstallmentCount, totalOfInstallments } from '@/lib/installments';
 import { formatCents, maskAmountInput, parseAmountToCents } from '@/lib/money';
-import { todayISO } from '@/lib/month';
+import { formatMonthShort, shiftMonth, todayISO, type MonthKey } from '@/lib/month';
 import type { Category, Kind, Transaction } from '@/lib/types';
 import { CategoryPicker } from './category-picker';
 import { Sheet } from './sheet';
@@ -55,6 +55,16 @@ export function TransactionSheet({
   const [parceling, setParceling] = useState(false);
   const [installments, setInstallments] = useState(3);
 
+  // Mês da fatura: uma compra de cartão pode contar num mês diferente do
+  // da data, porque a fatura já fechou. Cada cartão vira num dia diferente,
+  // então o app só sugere o mês seguinte -- quem decide é a pessoa.
+  const [useBillingMonth, setUseBillingMonth] = useState(() => editing?.billing_month != null);
+  const [billingMonth, setBillingMonth] = useState<MonthKey>(() =>
+    editing?.billing_month
+      ? editing.billing_month.slice(0, 7)
+      : shiftMonth((editing?.occurred_on ?? todayISO()).slice(0, 7), 1),
+  );
+
   const createTransaction = useCreateTransaction(coupleId);
   const createInstallmentPurchase = useCreateInstallmentPurchase(coupleId);
   const updateTransaction = useUpdateTransaction();
@@ -62,8 +72,10 @@ export function TransactionSheet({
   const deleteInstallmentsFrom = useDeleteInstallmentsFrom();
 
   const amountCents = parseAmountToCents(amount);
-  const isNewExpense = !editing && kind === 'expense';
+  const isExpense = kind === 'expense';
+  const isNewExpense = !editing && isExpense;
   const willParcel = isNewExpense && parceling && isValidInstallmentCount(installments);
+  const billingMonthValue = isExpense && useBillingMonth ? billingMonth : null;
 
   // `amount` já É o valor de cada parcela aqui -- nada é dividido. O total
   // (mostrado abaixo) é só multiplicação, então nunca perde nem inventa centavo.
@@ -91,6 +103,7 @@ export function TransactionSheet({
           firstOccurredOn: date,
           categoryId,
           description: description.trim() || null,
+          firstBillingMonth: billingMonthValue,
         },
         { onSuccess: onClose },
       );
@@ -103,6 +116,7 @@ export function TransactionSheet({
       occurredOn: date,
       categoryId,
       description: description.trim() || null,
+      billingMonth: billingMonthValue,
     };
 
     if (editing) {
@@ -142,7 +156,10 @@ export function TransactionSheet({
                 // A categoria selecionada não serve para o outro tipo, e
                 // parcelamento só existe para despesa.
                 setCategoryId(null);
-                if (option === 'income') setParceling(false);
+                if (option === 'income') {
+                  setParceling(false);
+                  setUseBillingMonth(false);
+                }
               }}
               className={cx(
                 'min-h-11 rounded-lg text-sm font-semibold transition-colors',
@@ -240,6 +257,44 @@ export function TransactionSheet({
                     no total, começando em {preview[0].occurredOn.split('-').reverse().join('/')}.
                   </p>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {isExpense && (
+          <div className="rounded-xl border border-border p-3.5">
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium">É despesa de cartão de crédito</span>
+              <input
+                type="checkbox"
+                checked={useBillingMonth}
+                onChange={(e) => setUseBillingMonth(e.target.checked)}
+                className="size-5 accent-brand"
+              />
+            </label>
+
+            {useBillingMonth && (
+              <div className="mt-3 border-t border-border pt-3">
+                <Field
+                  label="Mês da fatura"
+                  hint="Cada cartão fecha num dia diferente, então é você quem escolhe. Ex.: comprou dia 27 mas a fatura já fechou -- marque o mês em que ela vai contar."
+                >
+                  <input
+                    type="month"
+                    value={billingMonth}
+                    onChange={(e) => setBillingMonth(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-border bg-surface px-3.5 py-3 text-text focus:border-brand focus:outline-2 focus:outline-brand/40"
+                  />
+                </Field>
+
+                <p className="mt-2.5 text-sm text-muted">
+                  Vai contar no saldo de{' '}
+                  <strong className="text-text">{formatMonthShort(billingMonth)}</strong>
+                  {billingMonth !== date.slice(0, 7) && `, não em ${formatMonthShort(date.slice(0, 7))}`}
+                  .
+                </p>
               </div>
             )}
           </div>
