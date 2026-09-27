@@ -52,6 +52,28 @@ export function useCreateBill(coupleId: string | undefined) {
   });
 }
 
+export function useUpdateBill() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, input }: { id: string; input: BillInput }) => {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase
+        .from('bills')
+        .update({
+          title: input.title.trim(),
+          amount_cents: input.amountCents,
+          due_date: input.dueDate,
+          category_id: input.categoryId,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bills'] }),
+  });
+}
+
 /**
  * Marca ou desmarca a conta como paga: é o botão que fica verde com o check.
  * Atualiza a lista na hora (otimista) e desfaz se o servidor recusar, porque

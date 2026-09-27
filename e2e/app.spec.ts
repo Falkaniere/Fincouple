@@ -256,6 +256,48 @@ test('conta a pagar vira check verde quando marcada', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Marcar Luz como paga' })).toBeVisible();
 });
 
+test('editar uma conta corrige o cadastro sem precisar apagar e recriar', async ({ page }) => {
+  await signInAndCreateCouple(page);
+
+  await page.getByRole('link', { name: 'Contas' }).click();
+  await page.getByRole('button', { name: 'Nova conta' }).click();
+  await page.getByRole('textbox', { name: 'Conta' }).fill('Luz');
+  await page.getByLabel('Valor').fill('18050');
+  await page.getByRole('button', { name: 'Adicionar conta' }).click();
+
+  // Tocar na conta abre a folha já preenchida, com "Editar conta" no título.
+  await page.getByRole('button', { name: 'Editar Luz' }).click();
+  await expect(page.getByRole('heading', { name: 'Editar conta' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Conta' })).toHaveValue('Luz');
+  await expect(page.getByLabel('Valor')).toHaveValue('180,50');
+
+  // Corrige o valor e o nome sem apagar nada.
+  await page.getByRole('textbox', { name: 'Conta' }).fill('Luz - conta certa');
+  await page.getByLabel('Valor').fill('19999');
+  await page.getByRole('button', { name: 'Salvar alterações' }).click();
+
+  await expect(page.getByText('Luz - conta certa')).toBeVisible();
+  await expect(page.getByText('R$ 199,99').first()).toBeVisible();
+  // O cadastro errado não existe mais como registro separado.
+  await expect(page.getByText('R$ 180,50')).toHaveCount(0);
+});
+
+test('apagar conta pela folha de edição some com ela da lista', async ({ page }) => {
+  await signInAndCreateCouple(page);
+
+  await page.getByRole('link', { name: 'Contas' }).click();
+  await page.getByRole('button', { name: 'Nova conta' }).click();
+  await page.getByRole('textbox', { name: 'Conta' }).fill('Internet');
+  await page.getByLabel('Valor').fill('9990');
+  await page.getByRole('button', { name: 'Adicionar conta' }).click();
+
+  await page.getByRole('button', { name: 'Editar Internet' }).click();
+  await page.getByRole('button', { name: 'Apagar conta' }).click();
+  await page.getByRole('button', { name: 'Apagar', exact: true }).click();
+
+  await expect(page.getByText('Nenhuma conta cadastrada')).toBeVisible();
+});
+
 test('exporta planilha e PDF do mês', async ({ page }) => {
   await signInAndCreateCouple(page);
 
