@@ -91,6 +91,7 @@ create or replace function public.generate_invite_code()
 returns text
 language plpgsql
 volatile
+set search_path = public, pg_temp
 as $$
 declare
   alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -213,13 +214,23 @@ begin
 end;
 $$;
 
-revoke all on function public.create_couple(text, integer, text) from public;
-revoke all on function public.join_couple(text) from public;
-revoke all on function public.leave_couple(uuid) from public;
-revoke all on function public.generate_invite_code() from public;
+-- O Supabase concede EXECUTE a `anon`/`authenticated` por privilegio padrao
+-- do schema public, direto para esses roles -- "revoke ... from public" nao
+-- alcanca isso (public aqui e' o pseudo-role, nao o schema). Por isso as
+-- funcoes ja se protegem sozinhas checando auth.uid(), e aqui fechamos o
+-- acesso por completo: nada fica exposto a quem nao esta logado, e a
+-- puramente interna (generate_invite_code) nao fica exposta nem a quem esta.
+revoke all on function public.create_couple(text, integer, text) from public, anon;
+revoke all on function public.join_couple(text) from public, anon;
+revoke all on function public.leave_couple(uuid) from public, anon;
+revoke all on function public.is_couple_member(uuid) from public, anon;
+revoke all on function public.generate_invite_code() from public, anon, authenticated;
 grant execute on function public.create_couple(text, integer, text) to authenticated;
 grant execute on function public.join_couple(text) to authenticated;
 grant execute on function public.leave_couple(uuid) to authenticated;
+-- Helper interno de RLS: so precisa ser executavel por quem avalia as
+-- politicas (authenticated), nunca via RPC anonimo.
+grant execute on function public.is_couple_member(uuid) to authenticated;
 
 -- ---------------------------------------------------------------- RLS
 
