@@ -422,6 +422,38 @@ test('conta a pagar vira check verde quando marcada', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Marcar Luz como paga' })).toBeVisible();
 });
 
+test('conta recorrente volta sozinha no mês seguinte ao ser marcada como paga', async ({
+  page,
+}) => {
+  await signInAndCreateCouple(page);
+
+  await page.getByRole('link', { name: 'Contas' }).click();
+  await page.getByRole('button', { name: 'Nova conta' }).click();
+  await page.getByRole('textbox', { name: 'Conta' }).fill('Aluguel');
+  await page.getByLabel('Valor').fill('180000');
+  await page.getByRole('checkbox', { name: 'Conta recorrente' }).check();
+  await page.getByRole('button', { name: 'Adicionar conta' }).click();
+
+  await page.getByRole('button', { name: 'Marcar Aluguel como paga' }).click();
+
+  // A conta original fica paga...
+  await expect(page.getByRole('button', { name: 'Marcar Aluguel como não paga' })).toBeVisible();
+  // ...e uma nova, ainda em aberto, aparece sozinha para o mês seguinte. Se
+  // tivesse duplicado, este locator bateria em duas contas e o teste falharia.
+  await expect(page.getByRole('button', { name: 'Marcar Aluguel como paga' })).toBeVisible();
+
+  // Desmarcar e marcar de novo não duplica a próxima ocorrência.
+  await page.getByRole('button', { name: 'Marcar Aluguel como não paga' }).click();
+  // Espera as duas contas em aberto (a original desmarcada e a que já
+  // nasceu para o mês seguinte) antes do próximo clique, senão a
+  // invalidação da primeira ação ainda em voo pode sobrescrever o estado.
+  await expect(page.getByRole('button', { name: 'Marcar Aluguel como paga' })).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'Marcar Aluguel como paga' }).first().click();
+  await expect(page.getByRole('button', { name: 'Marcar Aluguel como não paga' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Marcar Aluguel como paga' })).toHaveCount(1);
+});
+
 test('editar uma conta corrige o cadastro sem precisar apagar e recriar', async ({ page }) => {
   await signInAndCreateCouple(page);
 

@@ -58,6 +58,9 @@ export interface Bill {
   paid_at: string | null;
   paid_by: string | null;
   created_at: string;
+  /** Aluguel, assinatura etc.: ao marcar como paga, o app cria sozinho a
+   *  próxima ocorrência, um mês depois, ainda em aberto. */
+  is_recurring: boolean;
 }
 
 /** Uma linha do ranking de categorias da tela inicial. */

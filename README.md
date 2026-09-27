@@ -35,7 +35,9 @@ pode ser adicionado à tela inicial com ícone próprio.
   lançar gasto por gasto.
 - **Contas a pagar** numa aba própria: toca no botão, ela fica verde com um
   check. Tocar no nome da conta edita ou apaga — cadastrou errado, corrige
-  ali mesmo, sem precisar apagar e recriar.
+  ali mesmo, sem precisar apagar e recriar. Marcar uma conta como
+  **recorrente** (aluguel, assinatura) faz ela voltar sozinha, em aberto, um
+  mês depois de cada vez que for paga.
 - **Exportar** o mês em planilha (`.xlsx`) e em PDF.
 - **Instalar na tela inicial**, com o convite aparecendo depois do login.
 

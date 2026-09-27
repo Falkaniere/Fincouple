@@ -130,6 +130,15 @@ export const HeartIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const RepeatIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 7h13a3 3 0 0 1 3 3v1" />
+    <path d="m17.5 5.5 2.5 2.5-2.5 2.5" />
+    <path d="M20 17H7a3 3 0 0 1-3-3v-1" />
+    <path d="m6.5 20.5-2.5-2.5 2.5-2.5" />
+  </Icon>
+);
+
 export const UploadIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M12 15V4M8 8l4-4 4 4" />

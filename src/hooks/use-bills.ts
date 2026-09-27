@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { addMonthsClamped } from '@/lib/installments';
 import { dataKeys } from './use-month-data';
 import type { Bill } from '@/lib/types';
 
@@ -30,6 +31,7 @@ export interface BillInput {
   amountCents: number;
   dueDate: string;
   categoryId: string | null;
+  isRecurring: boolean;
 }
 
 export function useCreateBill(coupleId: string | undefined) {
@@ -44,6 +46,7 @@ export function useCreateBill(coupleId: string | undefined) {
         amount_cents: input.amountCents,
         due_date: input.dueDate,
         category_id: input.categoryId,
+        is_recurring: input.isRecurring,
       });
 
       if (error) throw error;
@@ -65,6 +68,7 @@ export function useUpdateBill() {
           amount_cents: input.amountCents,
           due_date: input.dueDate,
           category_id: input.categoryId,
+          is_recurring: input.isRecurring,
         })
         .eq('id', id);
 
@@ -78,6 +82,11 @@ export function useUpdateBill() {
  * Marca ou desmarca a conta como paga: é o botão que fica verde com o check.
  * Atualiza a lista na hora (otimista) e desfaz se o servidor recusar, porque
  * esperar a ida e volta faz o toque parecer travado.
+ *
+ * Numa conta recorrente (aluguel, assinatura), marcar como paga também cria
+ * a próxima ocorrência, um mês depois e ainda em aberto -- é assim que ela
+ * "volta sozinha" todo mês. Confere se essa próxima já existe antes de criar,
+ * para não duplicar se a pessoa desmarcar e marcar de novo.
  */
 export function useToggleBillPaid(coupleId: string | undefined) {
   const queryClient = useQueryClient();
@@ -98,6 +107,32 @@ export function useToggleBillPaid(coupleId: string | undefined) {
         .eq('id', bill.id);
 
       if (error) throw error;
+
+      if (paying && bill.is_recurring) {
+        const nextDueDate = addMonthsClamped(bill.due_date, 1);
+
+        const { data: existing, error: existingError } = await supabase
+          .from('bills')
+          .select('id')
+          .eq('couple_id', coupleId!)
+          .eq('title', bill.title)
+          .eq('due_date', nextDueDate)
+          .eq('is_recurring', true)
+          .maybeSingle();
+        if (existingError) throw existingError;
+
+        if (!existing) {
+          const { error: insertError } = await supabase.from('bills').insert({
+            couple_id: coupleId!,
+            category_id: bill.category_id,
+            title: bill.title,
+            amount_cents: bill.amount_cents,
+            due_date: nextDueDate,
+            is_recurring: true,
+          });
+          if (insertError) throw insertError;
+        }
+      }
     },
     onMutate: async ({ bill }) => {
       await queryClient.cancelQueries({ queryKey: key });
