@@ -5,6 +5,7 @@ import { formatCents } from '../money';
 import { formatDateBR, type MonthKey } from '../month';
 import { limitProgress } from '../summary';
 import { buildExportPayload, categoryName, exportFileName, type ExportPayload } from './data';
+import { descriptionWithInstallment } from '../transaction-description';
 import type { Bill, Category, Couple, Transaction } from '../types';
 
 const MARGIN = 40;
@@ -132,7 +133,7 @@ function drawTransactions(doc: jsPDF, payload: ExportPayload, startY: number): n
           formatDateBR(t.occurred_on),
           t.kind === 'income' ? 'Receita' : 'Despesa',
           categoryName(payload, t.category_id),
-          t.description ?? '',
+          descriptionWithInstallment(t),
           `${t.kind === 'income' ? '+' : '-'} ${money(t.amount_cents)}`,
         ])
       : [['—', '', 'Nenhum lançamento neste mês', '', '']];

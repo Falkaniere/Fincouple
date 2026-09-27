@@ -28,6 +28,9 @@ function tx(partial: Partial<Transaction>): Transaction {
     description: null,
     created_by: 'u1',
     created_at: '2026-09-10T12:00:00Z',
+    installment_group: null,
+    installment_no: null,
+    installment_total: null,
     ...partial,
   };
 }
@@ -155,4 +158,29 @@ test('valores grandes continuam exatos em centavos', () => {
     [],
   );
   assert.equal(s.expenseCents, 100_000_000);
+});
+
+// ------------------------------------------------------------- exportações
+
+test('descrição da parcela inclui "(no/total)" para exportações', async () => {
+  const { descriptionWithInstallment } = await import('../src/lib/transaction-description.ts');
+
+  const avulso = tx({ description: 'Padaria' });
+  assert.equal(descriptionWithInstallment(avulso), 'Padaria');
+
+  const parcela = tx({
+    description: 'Geladeira',
+    installment_group: 'g1',
+    installment_no: 2,
+    installment_total: 3,
+  });
+  assert.equal(descriptionWithInstallment(parcela), 'Geladeira (2/3)');
+
+  const parcelaSemDescricao = tx({
+    description: null,
+    installment_group: 'g1',
+    installment_no: 1,
+    installment_total: 3,
+  });
+  assert.equal(descriptionWithInstallment(parcelaSemDescricao), '(1/3)');
 });

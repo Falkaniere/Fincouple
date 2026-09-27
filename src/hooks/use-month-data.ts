@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { monthStart, nextMonthStart, type MonthKey } from '@/lib/month';
+import { splitInstallments } from '@/lib/installments';
 import { summarizeMonth, type MonthSummary } from '@/lib/summary';
 import type { Category, Kind, Transaction } from '@/lib/types';
 
@@ -94,6 +95,78 @@ export function useCreateTransaction(coupleId: string | undefined) {
         description: input.description,
         created_by: auth.user?.id ?? null,
       });
+
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+  });
+}
+
+export interface InstallmentPurchaseInput {
+  totalCents: number;
+  installmentCount: number;
+  firstOccurredOn: string;
+  categoryId: string | null;
+  description: string | null;
+}
+
+/**
+ * Cria uma despesa parcelada: N lançamentos, um por mês, ligados pelo mesmo
+ * `installment_group`. Um insert só, para as parcelas aparecerem juntas no
+ * outro celular (o realtime dispara uma vez por linha, mas todas chegam
+ * praticamente ao mesmo tempo).
+ */
+export function useCreateInstallmentPurchase(coupleId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: InstallmentPurchaseInput) => {
+      const supabase = getSupabaseBrowserClient();
+      const { data: auth } = await supabase.auth.getUser();
+
+      const group = crypto.randomUUID();
+      const parts = splitInstallments(input.totalCents, input.installmentCount, input.firstOccurredOn);
+
+      const { error } = await supabase.from('transactions').insert(
+        parts.map((part) => ({
+          couple_id: coupleId!,
+          kind: 'expense' as const,
+          amount_cents: part.amountCents,
+          occurred_on: part.occurredOn,
+          category_id: input.categoryId,
+          description: input.description,
+          created_by: auth.user?.id ?? null,
+          installment_group: group,
+          installment_no: part.installmentNo,
+          installment_total: part.installmentTotal,
+        })),
+      );
+
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+  });
+}
+
+/**
+ * Apaga esta parcela e as seguintes do mesmo grupo (mantém as anteriores,
+ * que já aconteceram). É a opção ao lado de "apagar só este lançamento".
+ */
+export function useDeleteInstallmentsFrom() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (transaction: Transaction) => {
+      if (!transaction.installment_group || transaction.installment_no === null) {
+        throw new Error('Este lançamento não faz parte de um parcelamento.');
+      }
+
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('installment_group', transaction.installment_group)
+        .gte('installment_no', transaction.installment_no);
 
       if (error) throw error;
     },

@@ -168,6 +168,61 @@ test('troca de mês mostra só o que é daquele mês', async ({ page }) => {
   await expect(page.getByLabel('Saldo do mês')).toContainText('50,00');
 });
 
+test('despesa parcelada cria uma parcela por mês, ligadas entre si', async ({ page }) => {
+  await signInAndCreateCouple(page);
+
+  await page.getByRole('button', { name: 'Novo lançamento' }).click();
+  await page.getByLabel('Valor').fill('10000');
+  await page.getByRole('checkbox', { name: 'Parcelar essa compra' }).check();
+  // 10000 centavos (R$ 100,00) em 3x: 33,34 + 33,33 + 33,33.
+  await expect(page.getByText('3x de R$ 33,33')).toBeVisible();
+  await expect(page.getByText('a primeira de R$ 33,34')).toBeVisible();
+  await page.getByLabel('Descrição (opcional)').fill('Geladeira');
+
+  await page.getByRole('button', { name: 'Lançar em 3x' }).click();
+
+  // Só a primeira parcela cai no mês atual.
+  const lancamentos = page.getByLabel('Lançamentos do mês');
+  await expect(lancamentos).toContainText('Geladeira');
+  await expect(lancamentos).toContainText('1/3');
+  await expect(page.getByLabel('Saldo do mês')).toContainText('33,34');
+
+  // A segunda parcela aparece no mês seguinte, com o valor sem o arredondamento.
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(lancamentos).toContainText('2/3');
+  await expect(page.getByLabel('Saldo do mês')).toContainText('33,33');
+
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(lancamentos).toContainText('3/3');
+});
+
+test('apagar "esta e as seguintes" remove só as parcelas futuras', async ({ page }) => {
+  await signInAndCreateCouple(page);
+
+  await page.getByRole('button', { name: 'Novo lançamento' }).click();
+  await page.getByLabel('Valor').fill('30000');
+  await page.getByRole('checkbox', { name: 'Parcelar essa compra' }).check();
+  await page.getByRole('button', { name: 'Lançar em 3x' }).click();
+
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await page.getByRole('button', { name: /2\/3/ }).click();
+  await expect(page.getByText('Parcela 2 de 3')).toBeVisible();
+  await page.getByRole('button', { name: 'Apagar esta e as parcelas seguintes' }).click();
+  await page.getByRole('button', { name: 'Apagar', exact: true }).click();
+
+  // A parcela 2 sumiu deste mês...
+  await expect(page.getByText('Nada lançado neste mês')).toBeVisible();
+
+  // ...e a 3 também não existe mais lá na frente.
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(page.getByText('Nada lançado neste mês')).toBeVisible();
+
+  // Mas a primeira parcela, já paga, continua no mês de origem.
+  await page.getByRole('button', { name: 'Mês anterior' }).click();
+  await page.getByRole('button', { name: 'Mês anterior' }).click();
+  await expect(page.getByLabel('Lançamentos do mês')).toContainText('1/3');
+});
+
 test('conta a pagar vira check verde quando marcada', async ({ page }) => {
   await signInAndCreateCouple(page);
 

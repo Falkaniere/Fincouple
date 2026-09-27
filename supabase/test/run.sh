@@ -29,9 +29,11 @@ psql -h "$SOCK" -U postgres -qtAc "select 1 from pg_database where datname='$DB'
 psql -h "$SOCK" -U postgres -d "$DB" -q \
   -c "drop schema if exists public cascade; create schema public; drop schema if exists auth cascade;" >/dev/null
 
+# Todas as migracoes, em ordem -- nao so a inicial.
+MIGRATIONS=("$HERE"/../migrations/*.sql)
 psql -h "$SOCK" -U postgres -d "$DB" -q -v ON_ERROR_STOP=1 \
   -f "$HERE/00_supabase_stub.sql" \
-  -f "$HERE/../migrations/0001_init.sql" 2>&1 | grep -v NOTICE || true
+  "${MIGRATIONS[@]/#/-f}" 2>&1 | grep -v NOTICE || true
 
 psql -h "$SOCK" -U postgres -d "$DB" -v ON_ERROR_STOP=1 -f "$HERE/01_rls_test.sql" \
   | grep -vE '^(SET|DO|INSERT|UPDATE|Pager)'
