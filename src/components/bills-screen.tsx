@@ -167,6 +167,7 @@ function BillSheet({
     editing ? maskAmountInput(String(editing.amount_cents)) : '',
   );
   const [dueDate, setDueDate] = useState(() => editing?.due_date ?? todayISO());
+  const [isRecurring, setIsRecurring] = useState(editing?.is_recurring ?? false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const amountCents = parseAmountToCents(amount);
@@ -177,7 +178,13 @@ function BillSheet({
     event.preventDefault();
     if (!title.trim()) return;
 
-    const input = { title, amountCents, dueDate, categoryId: editing?.category_id ?? null };
+    const input = {
+      title,
+      amountCents,
+      dueDate,
+      categoryId: editing?.category_id ?? null,
+      isRecurring,
+    };
 
     if (editing) {
       updateBill.mutate({ id: editing.id, input }, { onSuccess: onClose });
@@ -280,6 +287,21 @@ function BillSheet({
             required
           />
         </Field>
+
+        <label className="flex items-center justify-between gap-3 rounded-xl border border-border p-3.5">
+          <span className="text-sm font-medium">
+            Conta recorrente
+            <span className="mt-0.5 block text-xs font-normal text-muted">
+              Ao marcar como paga, já cria a próxima, um mês depois.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={isRecurring}
+            onChange={(e) => setIsRecurring(e.target.checked)}
+            className="size-5 shrink-0 accent-brand"
+          />
+        </label>
 
         {failed && <Notice>Não deu para salvar. Confira a conexão e tente de novo.</Notice>}
       </form>

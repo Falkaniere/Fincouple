@@ -3,7 +3,7 @@
 import { formatCents } from '@/lib/money';
 import { daysUntil, formatDateBR } from '@/lib/month';
 import type { Bill } from '@/lib/types';
-import { CheckIcon, TrashIcon } from './icons';
+import { CheckIcon, RepeatIcon, TrashIcon } from './icons';
 import { cx } from './ui';
 
 /** Texto do vencimento em linguagem de gente. */
@@ -65,8 +65,14 @@ export function BillRow({
         className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-1 text-left active:opacity-70"
       >
         <span className="min-w-0 flex-1">
-          <span className={cx('block truncate font-medium', paid && 'text-muted line-through')}>
-            {bill.title}
+          <span
+            className={cx(
+              'flex items-center gap-1.5 truncate font-medium',
+              paid && 'text-muted line-through',
+            )}
+          >
+            <span className="truncate">{bill.title}</span>
+            {bill.is_recurring && <RepeatIcon className="size-3.5 shrink-0 text-muted" />}
           </span>
           <span
             className={cx(
