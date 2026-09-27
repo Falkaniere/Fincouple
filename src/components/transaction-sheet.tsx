@@ -132,8 +132,87 @@ export function TransactionSheet({
       : null;
 
   return (
-    <Sheet open title={editing ? 'Editar lançamento' : 'Novo lançamento'} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-5">
+    <Sheet
+      open
+      title={editing ? 'Editar lançamento' : 'Novo lançamento'}
+      onClose={onClose}
+      footer={
+        <div className="space-y-2">
+          <Button
+            type="submit"
+            form="transaction-form"
+            size="lg"
+            className="w-full"
+            loading={pending}
+            disabled={amountCents <= 0}
+          >
+            {editing ? 'Salvar alterações' : willParcel ? `Lançar em ${installments}x` : 'Lançar'}
+          </Button>
+
+          {editing && (
+            <div className="space-y-2 border-t border-border pt-3">
+              {confirmingDelete ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted">
+                    {confirmingDelete === 'from-here'
+                      ? `Apagar esta e as parcelas seguintes (${editingInstallment?.no} a ${editingInstallment?.total})?`
+                      : 'Apagar este lançamento?'}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => setConfirmingDelete(null)}
+                    >
+                      Manter
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      className="flex-1"
+                      loading={deleteTransaction.isPending || deleteInstallmentsFrom.isPending}
+                      onClick={() =>
+                        confirmingDelete === 'from-here'
+                          ? deleteInstallmentsFrom.mutate(editing, { onSuccess: onClose })
+                          : deleteTransaction.mutate(editing.id, { onSuccess: onClose })
+                      }
+                    >
+                      Apagar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full text-negative"
+                    onClick={() => setConfirmingDelete('one')}
+                  >
+                    <TrashIcon className="size-4" />
+                    Apagar lançamento
+                  </Button>
+
+                  {editingInstallment && editingInstallment.no < editingInstallment.total && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full text-negative"
+                      onClick={() => setConfirmingDelete('from-here')}
+                    >
+                      <TrashIcon className="size-4" />
+                      Apagar esta e as parcelas seguintes
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      }
+    >
+      <form id="transaction-form" onSubmit={handleSubmit} className="space-y-5">
         {/* Despesa / Receita */}
         <div
           role="radiogroup"
@@ -322,77 +401,6 @@ export function TransactionSheet({
         </Field>
 
         {failed && <Notice>Não deu para salvar. Confira a conexão e tente de novo.</Notice>}
-
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full"
-          loading={pending}
-          disabled={amountCents <= 0}
-        >
-          {editing ? 'Salvar alterações' : willParcel ? `Lançar em ${installments}x` : 'Lançar'}
-        </Button>
-
-        {editing && (
-          <div className="space-y-2 border-t border-border pt-4">
-            {confirmingDelete ? (
-              <div className="space-y-2">
-                <p className="text-sm text-muted">
-                  {confirmingDelete === 'from-here'
-                    ? `Apagar esta e as parcelas seguintes (${editingInstallment?.no} a ${editingInstallment?.total})?`
-                    : 'Apagar este lançamento?'}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => setConfirmingDelete(null)}
-                  >
-                    Manter
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    className="flex-1"
-                    loading={deleteTransaction.isPending || deleteInstallmentsFrom.isPending}
-                    onClick={() =>
-                      confirmingDelete === 'from-here'
-                        ? deleteInstallmentsFrom.mutate(editing, { onSuccess: onClose })
-                        : deleteTransaction.mutate(editing.id, { onSuccess: onClose })
-                    }
-                  >
-                    Apagar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full text-negative"
-                  onClick={() => setConfirmingDelete('one')}
-                >
-                  <TrashIcon className="size-4" />
-                  Apagar lançamento
-                </Button>
-
-                {editingInstallment && editingInstallment.no < editingInstallment.total && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full text-negative"
-                    onClick={() => setConfirmingDelete('from-here')}
-                  >
-                    <TrashIcon className="size-4" />
-                    Apagar esta e as parcelas seguintes
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-        )}
       </form>
     </Sheet>
   );
