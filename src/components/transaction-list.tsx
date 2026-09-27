@@ -56,6 +56,7 @@ export function TransactionList({
                     <span className="block truncate text-xs text-muted">
                       {formatDayShort(t.occurred_on)}
                       {category ? ` · ${category.name}` : ''}
+                      {t.installment_total ? ` · ${t.installment_no}/${t.installment_total}` : ''}
                     </span>
                   </span>
 

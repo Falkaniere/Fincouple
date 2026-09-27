@@ -2,6 +2,7 @@ import writeXlsxFile from 'write-excel-file/browser';
 
 import { formatDateBR } from '../month';
 import { buildExportPayload, categoryName, exportFileName, type ExportPayload } from './data';
+import { descriptionWithInstallment } from '../transaction-description';
 import type { Bill, Category, Couple, Transaction } from '../types';
 import type { MonthKey } from '../month';
 
@@ -51,7 +52,7 @@ function transactionsSheet(payload: ExportPayload) {
       { value: formatDateBR(t.occurred_on), type: String },
       { value: t.kind === 'income' ? 'Receita' : 'Despesa', type: String },
       { value: categoryName(payload, t.category_id), type: String },
-      { value: t.description ?? '', type: String },
+      { value: descriptionWithInstallment(t), type: String },
       // Despesa entra negativa para a coluna somar direto no saldo.
       {
         value: t.kind === 'income' ? reais(t.amount_cents) : -reais(t.amount_cents),

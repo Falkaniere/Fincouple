@@ -3,18 +3,24 @@
 import { useState } from 'react';
 
 import {
+  useCreateInstallmentPurchase,
   useCreateTransaction,
+  useDeleteInstallmentsFrom,
   useDeleteTransaction,
   useUpdateTransaction,
   type TransactionInput,
 } from '@/hooks/use-month-data';
-import { maskAmountInput, parseAmountToCents } from '@/lib/money';
+import { isValidInstallmentCount, splitInstallments } from '@/lib/installments';
+import { formatCents, maskAmountInput, parseAmountToCents } from '@/lib/money';
 import { todayISO } from '@/lib/month';
 import type { Category, Kind, Transaction } from '@/lib/types';
 import { CategoryPicker } from './category-picker';
 import { Sheet } from './sheet';
 import { Button, Field, Input, Notice, cx } from './ui';
 import { TrashIcon } from './icons';
+
+const MIN_INSTALLMENTS = 2;
+const MAX_INSTALLMENTS = 24;
 
 /**
  * Folha de lançamento.
@@ -42,20 +48,52 @@ export function TransactionSheet({
   const [date, setDate] = useState(() => editing?.occurred_on ?? todayISO());
   const [categoryId, setCategoryId] = useState<string | null>(editing?.category_id ?? null);
   const [description, setDescription] = useState(editing?.description ?? '');
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState<'one' | 'from-here' | null>(null);
+
+  // Parcelamento só se aplica a uma despesa nova -- não dá para "parcelar"
+  // depois de já ter lançado, nem faz sentido numa receita.
+  const [parceling, setParceling] = useState(false);
+  const [installments, setInstallments] = useState(3);
 
   const createTransaction = useCreateTransaction(coupleId);
+  const createInstallmentPurchase = useCreateInstallmentPurchase(coupleId);
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();
+  const deleteInstallmentsFrom = useDeleteInstallmentsFrom();
 
   const amountCents = parseAmountToCents(amount);
+  const isNewExpense = !editing && kind === 'expense';
+  const willParcel = isNewExpense && parceling && isValidInstallmentCount(installments);
+
+  const preview =
+    willParcel && amountCents > 0 ? splitInstallments(amountCents, installments, date) : null;
+
   const pending =
-    createTransaction.isPending || updateTransaction.isPending || deleteTransaction.isPending;
-  const failed = createTransaction.isError || updateTransaction.isError;
+    createTransaction.isPending ||
+    createInstallmentPurchase.isPending ||
+    updateTransaction.isPending ||
+    deleteTransaction.isPending ||
+    deleteInstallmentsFrom.isPending;
+  const failed =
+    createTransaction.isError || createInstallmentPurchase.isError || updateTransaction.isError;
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (amountCents <= 0) return;
+
+    if (willParcel) {
+      createInstallmentPurchase.mutate(
+        {
+          totalCents: amountCents,
+          installmentCount: installments,
+          firstOccurredOn: date,
+          categoryId,
+          description: description.trim() || null,
+        },
+        { onSuccess: onClose },
+      );
+      return;
+    }
 
     const input: TransactionInput = {
       kind,
@@ -71,6 +109,11 @@ export function TransactionSheet({
       createTransaction.mutate(input, { onSuccess: onClose });
     }
   }
+
+  const editingInstallment =
+    editing?.installment_total !== null && editing?.installment_total !== undefined
+      ? { no: editing.installment_no!, total: editing.installment_total }
+      : null;
 
   return (
     <Sheet open title={editing ? 'Editar lançamento' : 'Novo lançamento'} onClose={onClose}>
@@ -94,8 +137,10 @@ export function TransactionSheet({
               aria-checked={kind === option}
               onClick={() => {
                 setKind(option);
-                // A categoria selecionada não serve para o outro tipo.
+                // A categoria selecionada não serve para o outro tipo, e
+                // parcelamento só existe para despesa.
                 setCategoryId(null);
+                if (option === 'income') setParceling(false);
               }}
               className={cx(
                 'min-h-11 rounded-lg text-sm font-semibold transition-colors',
@@ -111,10 +156,17 @@ export function TransactionSheet({
           ))}
         </div>
 
+        {editingInstallment && (
+          <p className="rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm text-muted">
+            Parcela <strong className="text-text">{editingInstallment.no}</strong> de{' '}
+            {editingInstallment.total}
+          </p>
+        )}
+
         {/* Valor */}
         <div>
           <label htmlFor="valor" className="mb-1.5 block text-sm font-medium text-muted">
-            Valor
+            {willParcel ? 'Valor total da compra' : 'Valor'}
           </label>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted">
@@ -133,6 +185,63 @@ export function TransactionSheet({
             />
           </div>
         </div>
+
+        {isNewExpense && (
+          <div className="rounded-xl border border-border p-3.5">
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium">Parcelar essa compra</span>
+              <input
+                type="checkbox"
+                checked={parceling}
+                onChange={(e) => setParceling(e.target.checked)}
+                className="size-5 accent-brand"
+              />
+            </label>
+
+            {parceling && (
+              <div className="mt-3 border-t border-border pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted">Número de parcelas</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setInstallments((n) => Math.max(MIN_INSTALLMENTS, n - 1))
+                      }
+                      aria-label="Menos parcelas"
+                      className="flex size-9 items-center justify-center rounded-full border border-border text-lg font-semibold"
+                    >
+                      −
+                    </button>
+                    <span className="w-10 text-center text-lg font-bold tabular-nums">
+                      {installments}x
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setInstallments((n) => Math.min(MAX_INSTALLMENTS, n + 1))
+                      }
+                      aria-label="Mais parcelas"
+                      className="flex size-9 items-center justify-center rounded-full border border-border text-lg font-semibold"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {preview && (
+                  <p className="mt-2.5 text-sm text-muted">
+                    {/* `installments` é sempre >= 2 aqui, então preview[1] sempre existe. */}
+                    {preview.length}x de {formatCents(preview[1].amountCents)}
+                    {preview[0].amountCents !== preview[1].amountCents &&
+                      ` (a primeira de ${formatCents(preview[0].amountCents)})`}
+                    , começando em {preview[0].occurredOn.split('-').reverse().join('/')}.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <CategoryPicker
           coupleId={coupleId}
@@ -164,20 +273,24 @@ export function TransactionSheet({
           loading={pending}
           disabled={amountCents <= 0}
         >
-          {editing ? 'Salvar alterações' : 'Lançar'}
+          {editing ? 'Salvar alterações' : willParcel ? `Lançar em ${installments}x` : 'Lançar'}
         </Button>
 
         {editing && (
-          <div className="border-t border-border pt-4">
+          <div className="space-y-2 border-t border-border pt-4">
             {confirmingDelete ? (
               <div className="space-y-2">
-                <p className="text-sm text-muted">Apagar este lançamento?</p>
+                <p className="text-sm text-muted">
+                  {confirmingDelete === 'from-here'
+                    ? `Apagar esta e as parcelas seguintes (${editingInstallment?.no} a ${editingInstallment?.total})?`
+                    : 'Apagar este lançamento?'}
+                </p>
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="secondary"
                     className="flex-1"
-                    onClick={() => setConfirmingDelete(false)}
+                    onClick={() => setConfirmingDelete(null)}
                   >
                     Manter
                   </Button>
@@ -185,9 +298,11 @@ export function TransactionSheet({
                     type="button"
                     variant="danger"
                     className="flex-1"
-                    loading={deleteTransaction.isPending}
+                    loading={deleteTransaction.isPending || deleteInstallmentsFrom.isPending}
                     onClick={() =>
-                      deleteTransaction.mutate(editing.id, { onSuccess: onClose })
+                      confirmingDelete === 'from-here'
+                        ? deleteInstallmentsFrom.mutate(editing, { onSuccess: onClose })
+                        : deleteTransaction.mutate(editing.id, { onSuccess: onClose })
                     }
                   >
                     Apagar
@@ -195,15 +310,29 @@ export function TransactionSheet({
                 </div>
               </div>
             ) : (
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-negative"
-                onClick={() => setConfirmingDelete(true)}
-              >
-                <TrashIcon className="size-4" />
-                Apagar lançamento
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full text-negative"
+                  onClick={() => setConfirmingDelete('one')}
+                >
+                  <TrashIcon className="size-4" />
+                  Apagar lançamento
+                </Button>
+
+                {editingInstallment && editingInstallment.no < editingInstallment.total && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full text-negative"
+                    onClick={() => setConfirmingDelete('from-here')}
+                  >
+                    <TrashIcon className="size-4" />
+                    Apagar esta e as parcelas seguintes
+                  </Button>
+                )}
+              </>
             )}
           </div>
         )}

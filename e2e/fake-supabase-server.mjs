@@ -56,6 +56,21 @@ function session() {
   };
 }
 
+/**
+ * Compara numericamente quando os dois lados são número (ex.: installment_no);
+ * cai para string nos outros casos (datas ISO comparam certo como string,
+ * já que são sempre do mesmo tamanho e zero-padded).
+ */
+function compare(cell, value) {
+  const cellNum = Number(cell);
+  const valueNum = Number(value);
+  if (cell !== null && cell !== '' && !Number.isNaN(cellNum) && !Number.isNaN(valueNum)) {
+    return cellNum < valueNum ? -1 : cellNum > valueNum ? 1 : 0;
+  }
+  const a = String(cell);
+  return a < value ? -1 : a > value ? 1 : 0;
+}
+
 /** Filtros do PostgREST que o app usa: eq, gte, lt. */
 function matches(row, params) {
   for (const [key, raw] of params.entries()) {
@@ -64,8 +79,8 @@ function matches(row, params) {
     const value = rest.join('.');
     const cell = row[key];
     if (op === 'eq' && String(cell) !== value) return false;
-    if (op === 'gte' && !(String(cell) >= value)) return false;
-    if (op === 'lt' && !(String(cell) < value)) return false;
+    if (op === 'gte' && compare(cell, value) < 0) return false;
+    if (op === 'lt' && compare(cell, value) >= 0) return false;
     if (op === 'is' && !(value === 'null' ? cell === null : String(cell) === value)) return false;
   }
   return true;

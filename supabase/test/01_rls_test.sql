@@ -196,6 +196,52 @@ begin
 end $$;
 \echo '-> totais do mes conferem (ok)'
 
+-- Despesa parcelada: 3 parcelas ligadas pelo mesmo grupo.
+do $$
+declare
+  grupo uuid := gen_random_uuid();
+  categoria uuid;
+begin
+  select id into categoria from public.categories where couple_id = current_setting('test.couple_a')::uuid and name = 'Mercado';
+
+  insert into public.transactions
+    (couple_id, category_id, kind, amount_cents, occurred_on, description,
+     installment_group, installment_no, installment_total)
+  values
+    (current_setting('test.couple_a')::uuid, categoria, 'expense', 3334, current_date, 'Geladeira', grupo, 1, 3),
+    (current_setting('test.couple_a')::uuid, categoria, 'expense', 3333, current_date + 30, 'Geladeira', grupo, 2, 3),
+    (current_setting('test.couple_a')::uuid, categoria, 'expense', 3333, current_date + 60, 'Geladeira', grupo, 3, 3);
+end $$;
+\echo '-> parcelas validas sao aceitas (ok)'
+
+-- Parcela alem do total declarado e' rejeitada.
+do $$
+begin
+  begin
+    insert into public.transactions
+      (couple_id, kind, amount_cents, occurred_on, installment_group, installment_no, installment_total)
+    values
+      (current_setting('test.couple_a')::uuid, 'expense', 100, current_date,
+       gen_random_uuid(), 4, 3);
+    raise exception 'FALHA: aceitou parcela 4 de 3';
+  exception
+    when check_violation then null;
+  end;
+end $$;
+
+-- So grupo sem numero/total (ou vice-versa) tambem e' rejeitado: e' tudo ou nada.
+do $$
+begin
+  begin
+    insert into public.transactions (couple_id, kind, amount_cents, occurred_on, installment_group)
+    values (current_setting('test.couple_a')::uuid, 'expense', 100, current_date, gen_random_uuid());
+    raise exception 'FALHA: aceitou grupo sem numero/total da parcela';
+  exception
+    when check_violation then null;
+  end;
+end $$;
+\echo '-> parcelamento inconsistente e rejeitado (ok)'
+
 -- leave_couple remove so a propria pessoa.
 select public.leave_couple(current_setting('test.couple_a')::uuid);
 do $$
