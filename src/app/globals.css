@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+/*
+  Fincouple — tema claro/escuro.
+  Tudo em tokens para que claro e escuro sejam trocados num só lugar.
+*/
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --border: #e3e6eb;
+  --text: #15181d;
+  --text-muted: #646b78;
+  --brand: #0d9488;
+  --brand-strong: #0f766e;
+  --brand-soft: #d3f2ee;
+  --positive: #15803d;
+  --positive-soft: #dcfce7;
+  --negative: #be123c;
+  --negative-soft: #ffe4e9;
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+  --overlay: rgb(9 12 18 / 0.45);
+}
+
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --bg: #0d1014;
+    --surface: #161a20;
+    --surface-2: #1e242c;
+    --border: #2a3139;
+    --text: #eef1f5;
+    --text-muted: #98a1b0;
+    --brand: #2dd4bf;
+    --brand-strong: #5eead4;
+    --brand-soft: #123b39;
+    --positive: #4ade80;
+    --positive-soft: #10331f;
+    --negative: #fb7185;
+    --negative-soft: #3d1420;
+    --warning: #fbbf24;
+    --warning-soft: #3a2a0c;
+    --overlay: rgb(0 0 0 / 0.6);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1014;
+  --surface: #161a20;
+  --surface-2: #1e242c;
+  --border: #2a3139;
+  --text: #eef1f5;
+  --text-muted: #98a1b0;
+  --brand: #2dd4bf;
+  --brand-strong: #5eead4;
+  --brand-soft: #123b39;
+  --positive: #4ade80;
+  --positive-soft: #10331f;
+  --negative: #fb7185;
+  --negative-soft: #3d1420;
+  --warning: #fbbf24;
+  --warning-soft: #3a2a0c;
+  --overlay: rgb(0 0 0 / 0.6);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  /* Respeita a área da câmera/barra inicial no iPhone. */
+  background: var(--bg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  /* Números tabulares deixam as colunas de valores alinhadas. */
+  font-variant-numeric: tabular-nums;
+  overscroll-behavior-y: none;
+}
+
+/* Alvos de toque nunca menores que o confortável no celular. */
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* O input de valor usa fonte grande para não dar zoom automático no iOS. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@utility card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+
+/* Folha que sobe de baixo (novo lançamento, nova conta). */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-sheet-up {
+  animation: sheet-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out;
+}
