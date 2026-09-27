@@ -51,6 +51,10 @@ create table public.transactions (
 );
 
 create index transactions_couple_month_idx on public.transactions (couple_id, occurred_on desc);
+-- Cobrem as chaves estrangeiras: sem isso, apagar uma categoria ou uma
+-- pessoa faz o Postgres varrer a tabela inteira (on delete set null).
+create index transactions_category_id_idx on public.transactions (category_id);
+create index transactions_created_by_idx  on public.transactions (created_by);
 
 create table public.bills (
   id          uuid primary key default gen_random_uuid(),
@@ -66,6 +70,8 @@ create table public.bills (
 );
 
 create index bills_couple_due_idx on public.bills (couple_id, due_date);
+create index bills_category_id_idx on public.bills (category_id);
+create index bills_paid_by_idx     on public.bills (paid_by);
 
 -- ---------------------------------------------------------------- helpers
 
@@ -257,14 +263,17 @@ create policy couple_members_select on public.couple_members
   for select to authenticated
   using (public.is_couple_member(couple_id));
 
+-- `(select auth.uid())` em vez de `auth.uid()` direto: sem o select, o
+-- Postgres reavalia a funcao a cada linha varrida pela politica; com ele,
+-- calcula uma vez so (initplan). As outras politicas ja usam esse formato.
 create policy couple_members_update_self on public.couple_members
   for update to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 create policy couple_members_delete_self on public.couple_members
   for delete to authenticated
-  using (user_id = auth.uid());
+  using (user_id = (select auth.uid()));
 
 -- categories / transactions / bills: acesso total dentro do proprio casal.
 create policy categories_all on public.categories
