@@ -304,7 +304,7 @@ test('apagar "esta e as seguintes" remove só as parcelas futuras', async ({ pag
 
   await page.getByRole('button', { name: 'Mês seguinte' }).click();
   await page.getByRole('button', { name: /2\/3/ }).click();
-  await expect(page.getByText('Parcela 2 de 3')).toBeVisible();
+  await expect(page.getByText('Numeração da parcela')).toBeVisible();
   await page.getByRole('button', { name: 'Apagar esta e as parcelas seguintes' }).click();
   await page.getByRole('button', { name: 'Apagar', exact: true }).click();
 
@@ -319,6 +319,78 @@ test('apagar "esta e as seguintes" remove só as parcelas futuras', async ({ pag
   await page.getByRole('button', { name: 'Mês anterior' }).click();
   await page.getByRole('button', { name: 'Mês anterior' }).click();
   await expect(page.getByLabel('Lançamentos do mês')).toContainText('1/3');
+});
+
+test('compra que já vinha sendo paga começa direto na parcela informada', async ({ page }) => {
+  await signInAndCreateCouple(page);
+
+  await page.getByRole('button', { name: 'Novo lançamento' }).click();
+  await page.getByLabel('Valor').fill('10000');
+  await page.getByRole('checkbox', { name: 'Parcelar essa compra' }).check();
+
+  // Total real da compra: 12x.
+  for (let i = 0; i < 9; i += 1) {
+    await page.getByRole('button', { name: 'Mais parcelas' }).click();
+  }
+  await expect(page.getByText('12x', { exact: true })).toBeVisible();
+
+  // Já vinha pagando fora do app -- só falta lançar da 8ª parcela em diante.
+  await page.getByRole('checkbox', { name: 'Já vinha pagando antes de lançar aqui' }).check();
+  for (let i = 0; i < 6; i += 1) {
+    await page.getByRole('button', { name: 'Parcela inicial seguinte' }).click();
+  }
+  await expect(page.getByText('Cria as parcelas 8 a 12')).toBeVisible();
+
+  await page.getByLabel('Descrição (opcional)').fill('Notebook usado');
+  await page.getByRole('button', { name: 'Lançar parcelas 8 a 12' }).click();
+
+  const lancamentos = page.getByLabel('Lançamentos do mês');
+  await expect(lancamentos).toContainText('8/12');
+
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(lancamentos).toContainText('9/12');
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(lancamentos).toContainText('10/12');
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(lancamentos).toContainText('11/12');
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(lancamentos).toContainText('12/12');
+});
+
+test('corrigir a numeração de uma parcela reflete nas parcelas passadas e futuras', async ({
+  page,
+}) => {
+  await signInAndCreateCouple(page);
+
+  await page.getByRole('button', { name: 'Novo lançamento' }).click();
+  await page.getByLabel('Valor').fill('20000');
+  await page.getByRole('checkbox', { name: 'Parcelar essa compra' }).check();
+  await page.getByRole('button', { name: 'Lançar em 3x' }).click();
+
+  // Abre a parcela do meio (2/3) e corrige: na verdade é a 6ª de 12.
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await page.getByRole('button', { name: /2\/3/ }).click();
+  await expect(page.getByText('Numeração da parcela')).toBeVisible();
+
+  for (let i = 0; i < 9; i += 1) {
+    await page.getByRole('button', { name: 'Mais parcelas no total' }).click();
+  }
+  for (let i = 0; i < 4; i += 1) {
+    await page.getByRole('button', { name: 'Parcela seguinte' }).click();
+  }
+  await page.getByRole('button', { name: 'Salvar alterações' }).click();
+
+  const lancamentos = page.getByLabel('Lançamentos do mês');
+  await expect(lancamentos).toContainText('6/12');
+
+  // Para trás: a parcela do mês anterior (era 1/3) virou 5/12.
+  await page.getByRole('button', { name: 'Mês anterior' }).click();
+  await expect(lancamentos).toContainText('5/12');
+
+  // Pra frente: a parcela de dois meses à frente (era 3/3) virou 7/12.
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(lancamentos).toContainText('7/12');
 });
 
 test('conta a pagar vira check verde quando marcada', async ({ page }) => {

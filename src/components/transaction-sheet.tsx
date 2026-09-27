@@ -7,10 +7,16 @@ import {
   useCreateTransaction,
   useDeleteInstallmentsFrom,
   useDeleteTransaction,
+  useRenumberInstallments,
   useUpdateTransaction,
   type TransactionInput,
 } from '@/hooks/use-month-data';
-import { buildInstallments, isValidInstallmentCount, totalOfInstallments } from '@/lib/installments';
+import {
+  buildInstallments,
+  isValidInstallmentCount,
+  isValidStartingInstallment,
+  totalOfInstallments,
+} from '@/lib/installments';
 import { formatCents, maskAmountInput, parseAmountToCents } from '@/lib/money';
 import { formatMonthShort, shiftMonth, todayISO, type MonthKey } from '@/lib/month';
 import type { Category, Kind, Transaction } from '@/lib/types';
@@ -54,6 +60,15 @@ export function TransactionSheet({
   // depois de já ter lançado, nem faz sentido numa receita.
   const [parceling, setParceling] = useState(false);
   const [installments, setInstallments] = useState(3);
+  // Compra que já vinha sendo paga antes de entrar no app: diz que já é a
+  // 8ª de 12, por exemplo, e só cria as parcelas que faltam.
+  const [startInstallmentNo, setStartInstallmentNo] = useState(1);
+
+  // Numeração de uma parcela já lançada -- editável para corrigir uma compra
+  // que entrou com o total ou o número errado. Corrige o grupo inteiro, as
+  // parcelas que já passaram e as que ainda vêm.
+  const [editNo, setEditNo] = useState(() => editing?.installment_no ?? 1);
+  const [editTotal, setEditTotal] = useState(() => editing?.installment_total ?? 2);
 
   // Mês da fatura: uma compra de cartão pode contar num mês diferente do
   // da data, porque a fatura já fechou. Cada cartão vira num dia diferente,
@@ -70,28 +85,49 @@ export function TransactionSheet({
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();
   const deleteInstallmentsFrom = useDeleteInstallmentsFrom();
+  const renumberInstallments = useRenumberInstallments();
 
   const amountCents = parseAmountToCents(amount);
   const isExpense = kind === 'expense';
   const isNewExpense = !editing && isExpense;
-  const willParcel = isNewExpense && parceling && isValidInstallmentCount(installments);
+  const willParcel =
+    isNewExpense &&
+    parceling &&
+    isValidInstallmentCount(installments) &&
+    isValidStartingInstallment(startInstallmentNo, installments);
   const billingMonthValue = isExpense && useBillingMonth ? billingMonth : null;
 
   // `amount` já É o valor de cada parcela aqui -- nada é dividido. O total
   // (mostrado abaixo) é só multiplicação, então nunca perde nem inventa centavo.
   const preview =
-    willParcel && amountCents > 0 ? buildInstallments(amountCents, installments, date) : null;
+    willParcel && amountCents > 0
+      ? buildInstallments(amountCents, installments, date, startInstallmentNo)
+      : null;
+
+  const editingInstallment =
+    editing?.installment_total !== null && editing?.installment_total !== undefined
+      ? { no: editing.installment_no!, total: editing.installment_total }
+      : null;
+
+  const numberingChanged =
+    editingInstallment !== null &&
+    (editNo !== editingInstallment.no || editTotal !== editingInstallment.total);
+  const numberingValid = isValidStartingInstallment(editNo, editTotal) && editTotal >= 2;
 
   const pending =
     createTransaction.isPending ||
     createInstallmentPurchase.isPending ||
     updateTransaction.isPending ||
     deleteTransaction.isPending ||
-    deleteInstallmentsFrom.isPending;
+    deleteInstallmentsFrom.isPending ||
+    renumberInstallments.isPending;
   const failed =
-    createTransaction.isError || createInstallmentPurchase.isError || updateTransaction.isError;
+    createTransaction.isError ||
+    createInstallmentPurchase.isError ||
+    updateTransaction.isError ||
+    renumberInstallments.isError;
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (amountCents <= 0) return;
 
@@ -100,6 +136,7 @@ export function TransactionSheet({
         {
           amountCentsPerInstallment: amountCents,
           installmentCount: installments,
+          startInstallmentNo,
           firstOccurredOn: date,
           categoryId,
           description: description.trim() || null,
@@ -110,6 +147,8 @@ export function TransactionSheet({
       return;
     }
 
+    if (editingInstallment && numberingChanged && !numberingValid) return;
+
     const input: TransactionInput = {
       kind,
       amountCents,
@@ -119,17 +158,25 @@ export function TransactionSheet({
       billingMonth: billingMonthValue,
     };
 
-    if (editing) {
-      updateTransaction.mutate({ id: editing.id, input }, { onSuccess: onClose });
-    } else {
-      createTransaction.mutate(input, { onSuccess: onClose });
+    try {
+      if (editing) {
+        if (editingInstallment && numberingChanged) {
+          await renumberInstallments.mutateAsync({
+            group: editing.installment_group!,
+            oldNo: editingInstallment.no,
+            newNo: editNo,
+            newTotal: editTotal,
+          });
+        }
+        await updateTransaction.mutateAsync({ id: editing.id, input });
+      } else {
+        await createTransaction.mutateAsync(input);
+      }
+      onClose();
+    } catch {
+      // O erro já fica visível pelo `failed` acima -- a pessoa tenta de novo.
     }
   }
-
-  const editingInstallment =
-    editing?.installment_total !== null && editing?.installment_total !== undefined
-      ? { no: editing.installment_no!, total: editing.installment_total }
-      : null;
 
   return (
     <Sheet
@@ -144,9 +191,17 @@ export function TransactionSheet({
             size="lg"
             className="w-full"
             loading={pending}
-            disabled={amountCents <= 0}
+            disabled={
+              amountCents <= 0 || (editingInstallment !== null && numberingChanged && !numberingValid)
+            }
           >
-            {editing ? 'Salvar alterações' : willParcel ? `Lançar em ${installments}x` : 'Lançar'}
+            {editing
+              ? 'Salvar alterações'
+              : willParcel
+                ? startInstallmentNo > 1
+                  ? `Lançar parcelas ${startInstallmentNo} a ${installments}`
+                  : `Lançar em ${installments}x`
+                : 'Lançar'}
           </Button>
 
           {editing && (
@@ -255,10 +310,45 @@ export function TransactionSheet({
         </div>
 
         {editingInstallment && (
-          <p className="rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm text-muted">
-            Parcela <strong className="text-text">{editingInstallment.no}</strong> de{' '}
-            {editingInstallment.total}
-          </p>
+          <div className="rounded-xl border border-border p-3.5">
+            <p className="text-sm font-medium">Numeração da parcela</p>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="text-sm text-muted">Esta é a parcela nº</span>
+              <Stepper
+                value={editNo}
+                min={1}
+                max={editTotal}
+                onChange={setEditNo}
+                ariaLabelDecrease="Parcela anterior"
+                ariaLabelIncrease="Parcela seguinte"
+              />
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="text-sm text-muted">de um total de</span>
+              <Stepper
+                value={editTotal}
+                min={Math.max(2, editNo)}
+                max={MAX_INSTALLMENTS}
+                onChange={setEditTotal}
+                ariaLabelDecrease="Menos parcelas no total"
+                ariaLabelIncrease="Mais parcelas no total"
+              />
+            </div>
+
+            <p className="mt-2.5 text-xs text-muted">
+              {numberingChanged
+                ? 'Corrige a numeração de todas as parcelas dessa compra ao salvar -- as que já passaram e as que ainda vêm.'
+                : 'Errou o número quando lançou? Corrigir aqui ajusta a compra inteira, parcelas passadas e futuras.'}
+            </p>
+
+            {numberingChanged && !numberingValid && (
+              <p className="mt-1.5 text-xs text-warning">
+                A parcela não pode ser maior que o total.
+              </p>
+            )}
+          </div>
         )}
 
         {/* Valor */}
@@ -300,40 +390,62 @@ export function TransactionSheet({
               <div className="mt-3 border-t border-border pt-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm text-muted">Número de parcelas</span>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setInstallments((n) => Math.max(MIN_INSTALLMENTS, n - 1))
-                      }
-                      aria-label="Menos parcelas"
-                      className="flex size-9 items-center justify-center rounded-full border border-border text-lg font-semibold"
-                    >
-                      −
-                    </button>
-                    <span className="w-10 text-center text-lg font-bold tabular-nums">
-                      {installments}x
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setInstallments((n) => Math.min(MAX_INSTALLMENTS, n + 1))
-                      }
-                      aria-label="Mais parcelas"
-                      className="flex size-9 items-center justify-center rounded-full border border-border text-lg font-semibold"
-                    >
-                      +
-                    </button>
-                  </div>
+                  <Stepper
+                    value={installments}
+                    min={MIN_INSTALLMENTS}
+                    max={MAX_INSTALLMENTS}
+                    suffix="x"
+                    onChange={(next) => {
+                      setInstallments(next);
+                      setStartInstallmentNo((no) => Math.min(no, next));
+                    }}
+                    ariaLabelDecrease="Menos parcelas"
+                    ariaLabelIncrease="Mais parcelas"
+                  />
                 </div>
+
+                <label className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+                  <span className="text-sm text-muted">Já vinha pagando antes de lançar aqui</span>
+                  <input
+                    type="checkbox"
+                    checked={startInstallmentNo > 1}
+                    onChange={(e) => setStartInstallmentNo(e.target.checked ? 2 : 1)}
+                    className="size-5 accent-brand"
+                  />
+                </label>
+
+                {startInstallmentNo > 1 && (
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted">Essa vai ser a parcela nº</span>
+                    <Stepper
+                      value={startInstallmentNo}
+                      min={2}
+                      max={installments}
+                      onChange={setStartInstallmentNo}
+                      ariaLabelDecrease="Parcela inicial anterior"
+                      ariaLabelIncrease="Parcela inicial seguinte"
+                    />
+                  </div>
+                )}
 
                 {preview && (
                   <p className="mt-2.5 text-sm text-muted">
-                    {preview.length}x de {formatCents(amountCents)} ={' '}
-                    <strong className="text-text">
-                      {formatCents(totalOfInstallments(amountCents, installments))}
-                    </strong>{' '}
-                    no total, começando em {preview[0].occurredOn.split('-').reverse().join('/')}.
+                    {startInstallmentNo > 1 ? (
+                      <>
+                        Cria as parcelas {startInstallmentNo} a {installments} (
+                        {preview.length}x de {formatCents(amountCents)}), começando em{' '}
+                        {preview[0].occurredOn.split('-').reverse().join('/')}.
+                      </>
+                    ) : (
+                      <>
+                        {installments}x de {formatCents(amountCents)} ={' '}
+                        <strong className="text-text">
+                          {formatCents(totalOfInstallments(amountCents, installments))}
+                        </strong>{' '}
+                        no total, começando em {preview[0].occurredOn.split('-').reverse().join('/')}
+                        .
+                      </>
+                    )}
                   </p>
                 )}
               </div>
@@ -403,5 +515,49 @@ export function TransactionSheet({
         {failed && <Notice>Não deu para salvar. Confira a conexão e tente de novo.</Notice>}
       </form>
     </Sheet>
+  );
+}
+
+/** Botões -/+ com o valor no meio, para número de parcelas e afins. */
+function Stepper({
+  value,
+  min,
+  max,
+  suffix = '',
+  onChange,
+  ariaLabelDecrease,
+  ariaLabelIncrease,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  suffix?: string;
+  onChange: (value: number) => void;
+  ariaLabelDecrease: string;
+  ariaLabelIncrease: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(min, value - 1))}
+        aria-label={ariaLabelDecrease}
+        className="flex size-9 items-center justify-center rounded-full border border-border text-lg font-semibold"
+      >
+        −
+      </button>
+      <span className="w-10 text-center text-lg font-bold tabular-nums">
+        {value}
+        {suffix}
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(max, value + 1))}
+        aria-label={ariaLabelIncrease}
+        className="flex size-9 items-center justify-center rounded-full border border-border text-lg font-semibold"
+      >
+        +
+      </button>
+    </div>
   );
 }
