@@ -229,6 +229,53 @@ export function useDeleteTransaction() {
   });
 }
 
+export interface ImportRowInput {
+  occurredOn: string;
+  description: string | null;
+  amountCents: number;
+  categoryId: string | null;
+}
+
+/**
+ * Importa vários gastos de uma vez (extrato de fatura em .csv/.xlsx/.pdf).
+ * Um insert só, como no parcelamento, para todos chegarem juntos no outro
+ * celular. `billingMonth` é opcional e vale para o lote inteiro -- útil
+ * quando a fatura já fechou e as compras do mês precisam contar no mês
+ * seguinte.
+ */
+export function useImportTransactions(coupleId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      rows,
+      billingMonth,
+    }: {
+      rows: ImportRowInput[];
+      billingMonth: MonthKey | null;
+    }) => {
+      const supabase = getSupabaseBrowserClient();
+      const { data: auth } = await supabase.auth.getUser();
+
+      const { error } = await supabase.from('transactions').insert(
+        rows.map((row) => ({
+          couple_id: coupleId!,
+          kind: 'expense' as const,
+          amount_cents: row.amountCents,
+          occurred_on: row.occurredOn,
+          category_id: row.categoryId,
+          description: row.description,
+          created_by: auth.user?.id ?? null,
+          billing_month: billingMonth ? monthStart(billingMonth) : null,
+        })),
+      );
+
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+  });
+}
+
 /**
  * Cria uma categoria no meio do lançamento. Devolve a categoria para a folha
  * já deixá-la selecionada, e ela passa a aparecer nos próximos lançamentos.
