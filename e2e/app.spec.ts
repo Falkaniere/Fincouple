@@ -168,6 +168,70 @@ test('troca de mês mostra só o que é daquele mês', async ({ page }) => {
   await expect(page.getByLabel('Saldo do mês')).toContainText('50,00');
 });
 
+test('mês da fatura faz a despesa de cartão contar em outro mês', async ({ page }) => {
+  await signInAndCreateCouple(page);
+
+  await page.getByRole('button', { name: 'Novo lançamento' }).click();
+  await page.getByLabel('Valor').fill('5000');
+  await page.getByRole('checkbox', { name: 'É despesa de cartão de crédito' }).check();
+  // Sugestão automática é o mês seguinte -- a pessoa pode aceitar ou trocar.
+  await expect(page.getByText(/Vai contar no saldo de/)).toBeVisible();
+  await page.getByLabel('Descrição (opcional)').fill('Compra no cartão');
+  await page.getByRole('button', { name: 'Lançar' }).click();
+
+  // A compra some do mês atual...
+  await expect(page.getByText('Nada lançado neste mês')).toBeVisible();
+  await expect(page.getByLabel('Saldo do mês')).toContainText('R$ 0,00');
+
+  // ...e aparece no mês seguinte, marcada como fatura.
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  const lancamentos = page.getByLabel('Lançamentos do mês');
+  await expect(lancamentos).toContainText('Compra no cartão');
+  await expect(lancamentos).toContainText('(fatura)');
+  await expect(page.getByLabel('Saldo do mês')).toContainText('50,00');
+});
+
+test('editar o mês da fatura move o lançamento para o mês certo', async ({ page }) => {
+  await signInAndCreateCouple(page);
+
+  await page.getByRole('button', { name: 'Novo lançamento' }).click();
+  await page.getByLabel('Valor').fill('3000');
+  await page.getByLabel('Descrição (opcional)').fill('Farmácia');
+  await page.getByRole('button', { name: 'Lançar' }).click();
+  await expect(page.getByLabel('Lançamentos do mês')).toContainText('Farmácia');
+
+  // Duas viradas de fatura à frente, calculado sem fixar o ano no teste.
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+  const targetMonthKey = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}`;
+
+  await page.getByRole('button', { name: /Farmácia/ }).click();
+  await page.getByRole('checkbox', { name: 'É despesa de cartão de crédito' }).check();
+  await page.locator('input[type="month"]').fill(targetMonthKey);
+  await page.getByRole('button', { name: 'Salvar alterações' }).click();
+
+  // Saiu do mês original...
+  await expect(page.getByText('Nada lançado neste mês')).toBeVisible();
+
+  // ...e chegou exatamente dois meses à frente, marcada como fatura.
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(page.getByText('Nada lançado neste mês')).toBeVisible();
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  const lancamentos = page.getByLabel('Lançamentos do mês');
+  await expect(lancamentos).toContainText('Farmácia');
+  await expect(lancamentos).toContainText('(fatura)');
+
+  // E desmarcar o cartão devolve o lançamento para o mês da própria data.
+  await page.getByRole('button', { name: /Farmácia/ }).click();
+  await page.getByRole('checkbox', { name: 'É despesa de cartão de crédito' }).uncheck();
+  await page.getByRole('button', { name: 'Salvar alterações' }).click();
+  await expect(page.getByText('Nada lançado neste mês')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Mês anterior' }).click();
+  await page.getByRole('button', { name: 'Mês anterior' }).click();
+  await expect(page.getByLabel('Lançamentos do mês')).toContainText('Farmácia');
+});
+
 test('despesa parcelada cria uma parcela por mês, todas com o mesmo valor', async ({
   page,
 }) => {
@@ -198,6 +262,36 @@ test('despesa parcelada cria uma parcela por mês, todas com o mesmo valor', asy
   await page.getByRole('button', { name: 'Mês seguinte' }).click();
   await expect(lancamentos).toContainText('3/3');
   await expect(page.getByLabel('Saldo do mês')).toContainText('33,33');
+});
+
+test('compra parcelada no cartão soma o mês da fatura à data de cada parcela', async ({
+  page,
+}) => {
+  await signInAndCreateCouple(page);
+
+  await page.getByRole('button', { name: 'Novo lançamento' }).click();
+  await page.getByLabel('Valor').fill('10000');
+  await page.getByRole('checkbox', { name: 'Parcelar essa compra' }).check();
+  await page.getByRole('checkbox', { name: 'É despesa de cartão de crédito' }).check();
+  // Sugestão automática (mês seguinte ao da data) fica valendo para a
+  // primeira parcela; as próximas andam a partir dela.
+  await page.getByLabel('Descrição (opcional)').fill('Notebook');
+  await page.getByRole('button', { name: 'Lançar em 3x' }).click();
+
+  // A compra some do mês da data (a fatura empurrou tudo um mês à frente).
+  await expect(page.getByText('Nada lançado neste mês')).toBeVisible();
+
+  const lancamentos = page.getByLabel('Lançamentos do mês');
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(lancamentos).toContainText('Notebook');
+  await expect(lancamentos).toContainText('1/3');
+  await expect(lancamentos).toContainText('(fatura)');
+
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(lancamentos).toContainText('2/3');
+
+  await page.getByRole('button', { name: 'Mês seguinte' }).click();
+  await expect(lancamentos).toContainText('3/3');
 });
 
 test('apagar "esta e as seguintes" remove só as parcelas futuras', async ({ page }) => {

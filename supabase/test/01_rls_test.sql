@@ -242,6 +242,49 @@ begin
 end $$;
 \echo '-> parcelamento inconsistente e rejeitado (ok)'
 
+-- Mes da fatura: compra feita num mes mas atribuida a outro.
+do $$
+declare
+  categoria uuid;
+  efetivo date;
+begin
+  select id into categoria from public.categories where couple_id = current_setting('test.couple_a')::uuid and name = 'Mercado';
+
+  insert into public.transactions (couple_id, category_id, kind, amount_cents, occurred_on, billing_month, description)
+  values (current_setting('test.couple_a')::uuid, categoria, 'expense', 4200, '2026-09-27', '2026-10-01', 'Compra no cartao');
+
+  select effective_month into efetivo
+  from public.transactions where description = 'Compra no cartao';
+
+  assert efetivo = '2026-10-01', format('effective_month deveria ser outubro, veio %s', efetivo);
+end $$;
+\echo '-> mes da fatura muda o mes em que a compra conta (ok)'
+
+-- Sem billing_month, o mes efetivo e o da propria data da compra.
+do $$
+declare efetivo date;
+begin
+  select effective_month into efetivo
+  from public.transactions where description = 'Farmacia';
+
+  assert efetivo = current_date - (extract(day from current_date)::int - 1),
+    format('sem billing_month, effective_month deveria ser o mes da compra, veio %s', efetivo);
+end $$;
+\echo '-> sem mes da fatura, o mes efetivo e o da data da compra (ok)'
+
+-- billing_month so aceita o dia 1 de um mes.
+do $$
+begin
+  begin
+    insert into public.transactions (couple_id, kind, amount_cents, occurred_on, billing_month)
+    values (current_setting('test.couple_a')::uuid, 'expense', 100, current_date, '2026-10-15');
+    raise exception 'FALHA: aceitou billing_month que nao e o dia 1 do mes';
+  exception
+    when check_violation then null;
+  end;
+end $$;
+\echo '-> billing_month tem que ser o dia 1 de um mes (ok)'
+
 -- leave_couple remove so a propria pessoa.
 select public.leave_couple(current_setting('test.couple_a')::uuid);
 do $$

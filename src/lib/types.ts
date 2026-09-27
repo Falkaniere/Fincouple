@@ -39,6 +39,12 @@ export interface Transaction {
   installment_group: string | null;
   installment_no: number | null;
   installment_total: number | null;
+  /**
+   * Quando preenchido (sempre dia 1 de um mês), o lançamento conta nesse mês
+   * em vez do mês da própria data -- para alinhar com o fechamento da
+   * fatura do cartão, que varia de cartão para cartão.
+   */
+  billing_month: string | null;
 }
 
 export interface Bill {

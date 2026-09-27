@@ -9,6 +9,16 @@
  */
 import { createServer } from 'node:http';
 
+/**
+ * Simula a coluna gerada `effective_month` do Postgres real: cai no
+ * billing_month quando existe, senão no primeiro dia do mês da própria data.
+ */
+function computeEffectiveMonth(row) {
+  if (row.billing_month) return row.billing_month;
+  if (row.occurred_on) return `${row.occurred_on.slice(0, 7)}-01`;
+  return null;
+}
+
 const USER = {
   id: '11111111-1111-1111-1111-111111111111',
   email: 'jonatas@example.com',
@@ -220,16 +230,21 @@ const server = createServer(async (req, res) => {
     if (req.method === 'POST') {
       const payload = await readBody(req);
       const items = Array.isArray(payload) ? payload : [payload];
-      const created = items.map((item) => ({
-        id: uuid(),
-        created_at: new Date().toISOString(),
-        paid_at: null,
-        paid_by: null,
-        color: '#64748b',
-        category_id: null,
-        description: null,
-        ...item,
-      }));
+      const created = items.map((item) => {
+        const row = {
+          id: uuid(),
+          created_at: new Date().toISOString(),
+          paid_at: null,
+          paid_by: null,
+          color: '#64748b',
+          category_id: null,
+          description: null,
+          billing_month: null,
+          ...item,
+        };
+        if (table === 'transactions') row.effective_month = computeEffectiveMonth(row);
+        return row;
+      });
       rows.push(...created);
       return send(201, maybeSingle(created));
     }
@@ -240,6 +255,7 @@ const server = createServer(async (req, res) => {
       for (const row of rows) {
         if (matches(row, url.searchParams)) {
           Object.assign(row, payload);
+          if (table === 'transactions') row.effective_month = computeEffectiveMonth(row);
           updated.push(row);
         }
       }

@@ -31,6 +31,7 @@ function tx(partial: Partial<Transaction>): Transaction {
     installment_group: null,
     installment_no: null,
     installment_total: null,
+    billing_month: null,
     ...partial,
   };
 }

@@ -17,6 +17,11 @@ pode ser adicionado à tela inicial com ícone próprio.
   vai aparecer todo mês) e o número de parcelas, até 24x. Nenhum valor é
   dividido nem arredondado — todas as parcelas saem idênticas, uma por mês.
   Dá para apagar só uma parcela ou "esta e as seguintes".
+- **Mês da fatura**: para despesas de cartão, marca "É despesa de cartão de
+  crédito" e escolhe em que mês ela deve contar — útil quando a fatura já
+  fechou e o gasto de hoje só vai aparecer na fatura do mês seguinte. Como
+  cada cartão vira num dia diferente, isso nunca é automático: é sempre uma
+  escolha, lançamento por lançamento.
 - **Contas a pagar** numa aba própria: toca no botão, ela fica verde com um
   check. Tocar no nome da conta edita ou apaga — cadastrou errado, corrige
   ali mesmo, sem precisar apagar e recriar.

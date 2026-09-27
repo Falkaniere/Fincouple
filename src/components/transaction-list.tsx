@@ -55,6 +55,11 @@ export function TransactionList({
                     </span>
                     <span className="block truncate text-xs text-muted">
                       {formatDayShort(t.occurred_on)}
+                      {/* A compra foi num mês, mas conta neste por causa da
+                          fatura do cartão -- sinaliza pra não confundir. */}
+                      {t.billing_month && t.billing_month.slice(0, 7) !== t.occurred_on.slice(0, 7)
+                        ? ' (fatura)'
+                        : ''}
                       {category ? ` · ${category.name}` : ''}
                       {t.installment_total ? ` · ${t.installment_no}/${t.installment_total}` : ''}
                     </span>
