@@ -22,6 +22,12 @@ pode ser adicionado à tela inicial com ícone próprio.
   fechou e o gasto de hoje só vai aparecer na fatura do mês seguinte. Como
   cada cartão vira num dia diferente, isso nunca é automático: é sempre uma
   escolha, lançamento por lançamento.
+- **Importar gastos** de um extrato (`.csv`, `.xlsx` ou `.pdf`): o app lê o
+  arquivo no próprio navegador, tenta reconhecer a data, a descrição, o valor
+  e a categoria de cada linha, e mostra tudo para conferência antes de
+  lançar — nada entra sem confirmação. Linhas de pagamento (valor negativo)
+  chegam desmarcadas. Serve para pôr uma fatura inteira de uma vez, em vez de
+  lançar gasto por gasto.
 - **Contas a pagar** numa aba própria: toca no botão, ela fica verde com um
   check. Tocar no nome da conta edita ou apaga — cadastrou errado, corrige
   ali mesmo, sem precisar apagar e recriar.

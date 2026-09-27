@@ -7,17 +7,19 @@ import { useCategories, useMonthSummary, useTransactions } from '@/hooks/use-mon
 import type { Transaction } from '@/lib/types';
 import { BalanceCard } from './balance-card';
 import { CategoryRanking } from './category-ranking';
+import { ImportSheet } from './import-sheet';
 import { LimitProgress } from './limit-progress';
 import { MonthSwitcher } from './month-switcher';
 import { TransactionList } from './transaction-list';
 import { TransactionSheet } from './transaction-sheet';
-import { PlusIcon } from './icons';
+import { PlusIcon, UploadIcon } from './icons';
 import { Spinner } from './ui';
 
 export function HomeScreen() {
   const { couple, month } = useApp();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: categories } = useCategories(couple.id);
   const { data: transactions, isLoading } = useTransactions(couple.id, month);
@@ -69,7 +71,17 @@ export function HomeScreen() {
       </div>
 
       {/* Botão flutuante: a ação mais frequente do app fica sempre ao alcance
-          do polegar. */}
+          do polegar. Importar fica num botão secundário logo acima, para não
+          disputar espaço com o lançamento avulso. */}
+      <button
+        type="button"
+        onClick={() => setImportOpen(true)}
+        aria-label="Importar gastos de um extrato"
+        className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom)+4rem)] right-4 z-20 flex size-11 items-center justify-center rounded-full bg-surface text-muted shadow-md shadow-black/10 ring-1 ring-border transition-transform active:scale-95"
+      >
+        <UploadIcon className="size-5" />
+      </button>
+
       <button
         type="button"
         onClick={openNew}
@@ -88,6 +100,15 @@ export function HomeScreen() {
           categories={categories ?? []}
           editing={editing}
           onClose={() => setSheetOpen(false)}
+        />
+      )}
+
+      {importOpen && (
+        <ImportSheet
+          coupleId={couple.id}
+          categories={categories ?? []}
+          month={month}
+          onClose={() => setImportOpen(false)}
         />
       )}
     </>

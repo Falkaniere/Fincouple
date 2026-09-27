@@ -130,6 +130,13 @@ export const HeartIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const UploadIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 15V4M8 8l4-4 4 4" />
+    <path d="M5 15v3.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V15" />
+  </Icon>
+);
+
 export const SpinnerIcon = (p: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...p}>
     <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2.5" />

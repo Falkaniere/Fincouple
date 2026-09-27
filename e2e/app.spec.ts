@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const FAKE = 'http://127.0.0.1:54321';
 
@@ -428,6 +428,61 @@ test('alterar o limite em Ajustes muda a barra da tela inicial', async ({ page }
 
   await page.getByRole('link', { name: 'Início' }).click();
   await expect(page.getByLabel('Limite de gastos do mês')).toContainText('50%');
+});
+
+test('importa gastos de um extrato em csv, com categoria sugerida', async ({ page }) => {
+  await signInAndCreateCouple(page);
+
+  // Datas sem ano, como muita fatura mostra -- o import assume o ano do mês
+  // que já está selecionado na tela, então usa a data de hoje para o
+  // lançamento cair no mês corrente sem precisar trocar de mês no teste.
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2, '0');
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dataHoje = `${dd}/${mm}`;
+
+  const csv = [
+    'Data;Descrição;Valor',
+    `${dataHoje};UBER *VIAGEM;32,50`,
+    `${dataHoje};SUPERMERCADO CARREFOUR;158,90`,
+    `${dataHoje};PAGAMENTO RECEBIDO;-500,00`,
+  ].join('\n');
+
+  await page.getByRole('button', { name: 'Importar gastos de um extrato' }).click();
+  await expect(page.getByRole('heading', { name: 'Importar gastos' })).toBeVisible();
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'fatura.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(csv, 'utf-8'),
+  });
+
+  // As duas compras vêm marcadas, com categoria já sugerida; o pagamento
+  // (valor negativo) não é uma compra e chega desmarcado.
+  await expect(page.getByText('2 de 3 selecionados')).toBeVisible();
+
+  const selectedLabel = (select: Locator) =>
+    select.evaluate((el: HTMLSelectElement) => el.selectedOptions[0]?.textContent);
+
+  const uberRow = page.locator('li').filter({ has: page.locator('input[value="UBER *VIAGEM"]') });
+  const carrefourRow = page
+    .locator('li')
+    .filter({ has: page.locator('input[value="SUPERMERCADO CARREFOUR"]') });
+
+  await expect(uberRow).toBeVisible();
+  await expect(carrefourRow).toBeVisible();
+  expect(await selectedLabel(uberRow.getByLabel('Categoria'))).toBe('Transporte');
+  expect(await selectedLabel(carrefourRow.getByLabel('Categoria'))).toBe('Mercado');
+
+  await page.getByRole('button', { name: /^Importar 2 lançamentos$/ }).click();
+
+  const lancamentos = page.getByLabel('Lançamentos do mês');
+  await expect(lancamentos).toContainText('UBER *VIAGEM');
+  await expect(lancamentos).toContainText('SUPERMERCADO CARREFOUR');
+  await expect(lancamentos).not.toContainText('PAGAMENTO RECEBIDO');
+
+  // 32,50 + 158,90 -- o pagamento ficou de fora por vir desmarcado.
+  await expect(page.getByLabel('Saldo do mês')).toContainText('191,40');
 });
 
 test('sem sessão, o app manda para o login', async ({ page, context }) => {
