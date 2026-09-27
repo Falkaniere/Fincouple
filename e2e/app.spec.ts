@@ -168,32 +168,36 @@ test('troca de mês mostra só o que é daquele mês', async ({ page }) => {
   await expect(page.getByLabel('Saldo do mês')).toContainText('50,00');
 });
 
-test('despesa parcelada cria uma parcela por mês, ligadas entre si', async ({ page }) => {
+test('despesa parcelada cria uma parcela por mês, todas com o mesmo valor', async ({
+  page,
+}) => {
   await signInAndCreateCouple(page);
 
   await page.getByRole('button', { name: 'Novo lançamento' }).click();
-  await page.getByLabel('Valor').fill('10000');
+  // O valor digitado é o de CADA parcela -- nada é dividido, então
+  // R$ 33,33 não vira R$ 33,3333... em lugar nenhum: as três parcelas saem
+  // idênticas e o total (R$ 99,99) é só multiplicação.
+  await page.getByLabel('Valor').fill('3333');
   await page.getByRole('checkbox', { name: 'Parcelar essa compra' }).check();
-  // 10000 centavos (R$ 100,00) em 3x: 33,34 + 33,33 + 33,33.
-  await expect(page.getByText('3x de R$ 33,33')).toBeVisible();
-  await expect(page.getByText('a primeira de R$ 33,34')).toBeVisible();
+  await expect(page.getByText('3x de R$ 33,33 = R$ 99,99')).toBeVisible();
   await page.getByLabel('Descrição (opcional)').fill('Geladeira');
 
   await page.getByRole('button', { name: 'Lançar em 3x' }).click();
 
-  // Só a primeira parcela cai no mês atual.
+  // Só a primeira parcela cai no mês atual, com o valor cheio da parcela.
   const lancamentos = page.getByLabel('Lançamentos do mês');
   await expect(lancamentos).toContainText('Geladeira');
   await expect(lancamentos).toContainText('1/3');
-  await expect(page.getByLabel('Saldo do mês')).toContainText('33,34');
+  await expect(page.getByLabel('Saldo do mês')).toContainText('33,33');
 
-  // A segunda parcela aparece no mês seguinte, com o valor sem o arredondamento.
+  // A segunda e a terceira parcela valem exatamente o mesmo.
   await page.getByRole('button', { name: 'Mês seguinte' }).click();
   await expect(lancamentos).toContainText('2/3');
   await expect(page.getByLabel('Saldo do mês')).toContainText('33,33');
 
   await page.getByRole('button', { name: 'Mês seguinte' }).click();
   await expect(lancamentos).toContainText('3/3');
+  await expect(page.getByLabel('Saldo do mês')).toContainText('33,33');
 });
 
 test('apagar "esta e as seguintes" remove só as parcelas futuras', async ({ page }) => {

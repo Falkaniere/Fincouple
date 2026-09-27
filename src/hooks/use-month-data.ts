@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { monthStart, nextMonthStart, type MonthKey } from '@/lib/month';
-import { splitInstallments } from '@/lib/installments';
+import { buildInstallments } from '@/lib/installments';
 import { summarizeMonth, type MonthSummary } from '@/lib/summary';
 import type { Category, Kind, Transaction } from '@/lib/types';
 
@@ -103,7 +103,8 @@ export function useCreateTransaction(coupleId: string | undefined) {
 }
 
 export interface InstallmentPurchaseInput {
-  totalCents: number;
+  /** Valor de CADA parcela -- não é dividido, todas saem com este valor. */
+  amountCentsPerInstallment: number;
   installmentCount: number;
   firstOccurredOn: string;
   categoryId: string | null;
@@ -125,7 +126,11 @@ export function useCreateInstallmentPurchase(coupleId: string | undefined) {
       const { data: auth } = await supabase.auth.getUser();
 
       const group = crypto.randomUUID();
-      const parts = splitInstallments(input.totalCents, input.installmentCount, input.firstOccurredOn);
+      const parts = buildInstallments(
+        input.amountCentsPerInstallment,
+        input.installmentCount,
+        input.firstOccurredOn,
+      );
 
       const { error } = await supabase.from('transactions').insert(
         parts.map((part) => ({
