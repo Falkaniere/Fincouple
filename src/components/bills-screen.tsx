@@ -187,8 +187,65 @@ function BillSheet({
   }
 
   return (
-    <Sheet open title={editing ? 'Editar conta' : 'Nova conta'} onClose={onClose}>
-      <form className="space-y-4" onSubmit={handleSubmit}>
+    <Sheet
+      open
+      title={editing ? 'Editar conta' : 'Nova conta'}
+      onClose={onClose}
+      footer={
+        <div className="space-y-2">
+          <Button
+            type="submit"
+            form="bill-form"
+            size="lg"
+            className="w-full"
+            loading={pending}
+            disabled={!title.trim() || amountCents <= 0}
+          >
+            {editing ? 'Salvar alterações' : 'Adicionar conta'}
+          </Button>
+
+          {editing && (
+            <div className="border-t border-border pt-3">
+              {confirmingDelete ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted">Apagar esta conta?</p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => setConfirmingDelete(false)}
+                    >
+                      Manter
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      className="flex-1"
+                      loading={deleteBill.isPending}
+                      onClick={() => deleteBill.mutate(editing.id, { onSuccess: onClose })}
+                    >
+                      Apagar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full text-negative"
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  <TrashIcon className="size-4" />
+                  Apagar conta
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      }
+    >
+      <form id="bill-form" className="space-y-4" onSubmit={handleSubmit}>
         <Field label="Conta">
           <Input
             value={title}
@@ -225,55 +282,6 @@ function BillSheet({
         </Field>
 
         {failed && <Notice>Não deu para salvar. Confira a conexão e tente de novo.</Notice>}
-
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full"
-          loading={pending}
-          disabled={!title.trim() || amountCents <= 0}
-        >
-          {editing ? 'Salvar alterações' : 'Adicionar conta'}
-        </Button>
-
-        {editing && (
-          <div className="border-t border-border pt-4">
-            {confirmingDelete ? (
-              <div className="space-y-2">
-                <p className="text-sm text-muted">Apagar esta conta?</p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => setConfirmingDelete(false)}
-                  >
-                    Manter
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    className="flex-1"
-                    loading={deleteBill.isPending}
-                    onClick={() => deleteBill.mutate(editing.id, { onSuccess: onClose })}
-                  >
-                    Apagar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-negative"
-                onClick={() => setConfirmingDelete(true)}
-              >
-                <TrashIcon className="size-4" />
-                Apagar conta
-              </Button>
-            )}
-          </div>
-        )}
       </form>
     </Sheet>
   );
