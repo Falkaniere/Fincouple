@@ -14,7 +14,11 @@ test.beforeEach(async ({ request }) => {
 });
 
 /** Faz o login por link mágico e cria o casal. */
-async function signInAndCreateCouple(page: Page, limit = '400000') {
+async function signInAndCreateCouple(page: Page, limit = '400000', seedTour = true) {
+  // O tour é tela cheia e interceptaria os cliques dos demais testes.
+  if (seedTour) {
+    await page.addInitScript(() => localStorage.setItem('pairly:tour-seen', '1'));
+  }
   await page.goto('/login');
   await page.getByLabel('Seu email').fill('jonatas@example.com');
   await page.getByRole('button', { name: 'Receber link de acesso' }).click();
@@ -614,6 +618,46 @@ test('código de convite errado avisa e, depois de 5 erros, bloqueia as tentativ
   // A 6ª tentativa já encontra o bloqueio.
   await entrar.click();
   await expect(page.getByText('Muitas tentativas erradas')).toBeVisible();
+});
+
+test('primeira vez mostra o tour; pular marca como visto e não volta', async ({ page }) => {
+  await signInAndCreateCouple(page, '400000', false);
+
+  const tour = page.getByRole('dialog', { name: 'Tour do Pairly' });
+  await expect(tour).toBeVisible();
+  await expect(tour.getByRole('heading', { name: 'Compras parceladas' })).toBeVisible();
+
+  await tour.getByRole('button', { name: 'Próximo' }).click();
+  await expect(tour.getByRole('heading', { name: 'Mês da fatura' })).toBeVisible();
+
+  await tour.getByRole('button', { name: 'Pular' }).click();
+  await expect(tour).toBeHidden();
+  await expect(page.getByLabel('Saldo do mês')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel('Saldo do mês')).toBeVisible();
+  await expect(tour).toBeHidden();
+});
+
+test('o tour percorre todos os slides, ensina a instalar e dá para rever em Ajustes', async ({
+  page,
+}) => {
+  await signInAndCreateCouple(page);
+  const tour = page.getByRole('dialog', { name: 'Tour do Pairly' });
+  await expect(tour).toBeHidden();
+
+  await page.getByRole('link', { name: 'Ajustes' }).click();
+  await page.getByRole('button', { name: 'Ver o tour de novo' }).click();
+  await expect(tour).toBeVisible();
+
+  for (let i = 0; i < 4; i += 1) {
+    await tour.getByRole('button', { name: 'Próximo' }).click();
+  }
+  await expect(tour.getByRole('heading', { name: 'Instale no celular' })).toBeVisible();
+  await expect(tour.getByText('Adicionar à Tela de Início')).toBeVisible();
+
+  await tour.getByRole('button', { name: 'Começar' }).click();
+  await expect(tour).toBeHidden();
 });
 
 test('termos e privacidade abrem sem login, a partir do rodapé da tela de entrada', async ({

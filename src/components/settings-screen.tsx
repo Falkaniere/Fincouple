@@ -19,7 +19,7 @@ import { Button, Input, Notice } from './ui';
 import { LogoutIcon } from './icons';
 
 export function SettingsScreen() {
-  const { couple } = useApp();
+  const { couple, openTour } = useApp();
   const router = useRouter();
   const { data: user } = useSession();
   const { data: members } = useCoupleMembers(couple.id);
@@ -124,6 +124,16 @@ export function SettingsScreen() {
             )}
           </div>
         </section>
+
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={openTour}
+            className="text-sm font-medium text-brand underline"
+          >
+            Ver o tour de novo
+          </button>
+        </div>
 
         <p className="px-1 pb-2 text-center text-xs text-muted">
           <Link href="/termos" className="underline">
