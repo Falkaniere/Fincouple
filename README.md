@@ -40,6 +40,11 @@ pode ser adicionado à tela inicial com ícone próprio.
   mês depois de cada vez que for paga.
 - **Exportar** o mês em planilha (`.xlsx`) e em PDF.
 - **Instalar na tela inicial**, com o convite aparecendo depois do login.
+- **Tour rápido** na primeira vez (parcelamento, mês da fatura, contas
+  recorrentes, importar extrato e como instalar no celular). Dá para pular e
+  rever depois em Ajustes.
+- **Termos de Uso** (`/termos`) e **Política de Privacidade** (`/privacidade`),
+  abertos sem login e linkados na tela de entrada e em Ajustes.
 
 ## Como funciona o acesso
 
@@ -48,6 +53,9 @@ Login por **link mágico no email** — sem senha. Quem cria o controle recebe u
 com o código depois de fazer o próprio login.
 
 Trocar de celular não perde nada: os dados ficam no banco, não no aparelho.
+
+Quem erra o código de convite 5 vezes em 15 minutos fica bloqueado por 15
+minutos, para ninguém conseguir adivinhar o código de outro casal.
 
 Cada casal só enxerga os próprios dados. Isso não depende do app se comportar
 bem: está imposto no banco por *Row Level Security*, e há testes que provam

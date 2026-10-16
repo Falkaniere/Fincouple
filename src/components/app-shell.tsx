@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useCouple } from '@/hooks/use-couple';
 import { useRealtime } from '@/hooks/use-realtime';
 import { currentMonthKey, type MonthKey } from '@/lib/month';
+import { wasTourSeen } from '@/lib/tour-store';
 import type { Couple } from '@/lib/types';
 import { BottomNav } from './bottom-nav';
+import { FeatureTour } from './feature-tour';
 import { InstallPrompt } from './install-prompt';
 import { Spinner } from './ui';
 
@@ -15,6 +17,8 @@ interface AppContextValue {
   couple: Couple;
   month: MonthKey;
   setMonth: (month: MonthKey) => void;
+  /** Abre o tour de novo (link em Ajustes). */
+  openTour: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -30,6 +34,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { data: couple, isLoading, isError } = useCouple();
   const [month, setMonth] = useState<MonthKey>(() => currentMonthKey());
+  // Só aparece depois que o casal carrega, então no servidor nunca é desenhado.
+  const [tourOpen, setTourOpen] = useState(() => !wasTourSeen());
 
   // Liga o realtime o mais alto possível, para valer nas três abas.
   useRealtime(couple?.id);
@@ -62,11 +68,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ couple, month, setMonth }}>
+    <AppContext.Provider value={{ couple, month, setMonth, openTour: () => setTourOpen(true) }}>
       {/* pb-24 reserva a altura da navegação inferior fixa. */}
       <div className="mx-auto max-w-lg pb-24">{children}</div>
       <BottomNav />
       <InstallPrompt />
+      {tourOpen && <FeatureTour onClose={() => setTourOpen(false)} />}
     </AppContext.Provider>
   );
 }
