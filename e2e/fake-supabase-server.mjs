@@ -50,6 +50,7 @@ const state = {
   categories: [],
   transactions: [],
   bills: [],
+  joinFails: 0,
 };
 
 let idCounter = 0;
@@ -153,8 +154,17 @@ function rpc(name, body) {
   }
 
   if (name === 'join_couple') {
+    // Imita o bloqueio do Postgres: 5 codigos errados travam; errado devolve
+    // null (nao erro), e o app trata null como "nao encontrado".
+    if (state.joinFails >= 5) {
+      return [400, { message: 'too many invalid invite codes', code: 'P0003' }];
+    }
     const couple = state.couples.find((c) => c.invite_code === String(body.code).toUpperCase());
-    if (!couple) return [404, { message: 'invite code not found', code: 'P0002' }];
+    if (!couple) {
+      state.joinFails += 1;
+      return [200, null];
+    }
+    state.joinFails = 0;
     return [200, couple];
   }
 
@@ -190,7 +200,7 @@ const server = createServer(async (req, res) => {
   // ---- estado do teste
   if (url.pathname === '/__state') {
     if (req.method === 'POST') {
-      for (const key of Object.keys(state)) state[key] = [];
+      for (const key of Object.keys(state)) state[key] = key === 'joinFails' ? 0 : [];
       idCounter = 0;
       return send(200, { reset: true });
     }

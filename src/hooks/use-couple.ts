@@ -93,6 +93,12 @@ export function useCreateCouple() {
   });
 }
 
+export class InviteCodeNotFoundError extends Error {
+  constructor() {
+    super('invite code not found');
+  }
+}
+
 /** Entra num casal existente pelo código do convite. */
 export function useJoinCouple() {
   const queryClient = useQueryClient();
@@ -105,6 +111,9 @@ export function useJoinCouple() {
       });
 
       if (error) throw error;
+      // Código errado não levanta erro no banco (para o contador de tentativas
+      // persistir) -- chega como null.
+      if (!data) throw new InviteCodeNotFoundError();
       return data as Couple;
     },
     onSuccess: (couple) => {

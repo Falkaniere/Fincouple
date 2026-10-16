@@ -126,17 +126,93 @@ begin
 end $$;
 \echo '-> outro casal nao consegue escrever no casal A (ok)'
 
--- Codigo de convite inexistente falha de forma limpa.
+-- Codigo de convite inexistente nao entra em casal nenhum: devolve null (o app
+-- trata como "nao encontrado") e nao cria vinculo.
 do $$
+declare r public.couples; n int;
 begin
-  begin
-    perform public.join_couple('ZZZZZZ');
-    raise exception 'FALHA: aceitou codigo inexistente';
-  exception
-    when no_data_found then null; -- esperado
-  end;
+  r := public.join_couple('ZZZZZZ');
+  assert r.id is null, 'FALHA: aceitou codigo inexistente';
+
+  select count(*) into n from public.couple_members
+  where user_id = '33333333-3333-3333-3333-333333333333'
+    and couple_id <> current_setting('test.couple_b')::uuid;
+  assert n = 0, 'FALHA: codigo inexistente criou vinculo';
 end $$;
 \echo '-> codigo inexistente e rejeitado (ok)'
+
+-- Forca bruta: depois de 5 codigos errados, as tentativas travam -- ate com o
+-- codigo certo. O bloqueio e por pessoa, nao global.
+set test.user_id = '44444444-4444-4444-4444-444444444444';
+reset role;
+insert into auth.users (id, email) values ('44444444-4444-4444-4444-444444444444', 'curioso@example.com');
+set role authenticated;
+select set_config('test.code_a', :'code_a', false);
+
+do $$
+declare r public.couples; i int; locked boolean := false;
+begin
+  -- 4 erros: ainda nao trava, e um acerto no meio limparia o historico.
+  for i in 1..4 loop
+    r := public.join_couple('ZZZZZZ');
+    assert r.id is null, 'FALHA: aceitou codigo inexistente';
+  end loop;
+
+  -- 5o erro grava o bloqueio.
+  r := public.join_couple('ZZZZZZ');
+
+  begin
+    perform public.join_couple('ZZZZZZ');
+  exception when sqlstate 'P0003' then locked := true;
+  end;
+  assert locked, 'FALHA: nao bloqueou depois de 5 codigos errados';
+
+  -- Travado, nem o codigo certo passa.
+  locked := false;
+  begin
+    perform public.join_couple(current_setting('test.code_a'));
+  exception when sqlstate 'P0003' then locked := true;
+  end;
+  assert locked, 'FALHA: codigo certo passou durante o bloqueio';
+end $$;
+\echo '-> 5 codigos errados bloqueiam a pessoa (ok)'
+
+-- Outra pessoa nao e afetada pelo bloqueio.
+set test.user_id = '33333333-3333-3333-3333-333333333333';
+do $$
+declare r public.couples;
+begin
+  r := public.join_couple('ZZZZZZ');
+  assert r.id is null, 'FALHA: bloqueio vazou para outra pessoa';
+end $$;
+\echo '-> bloqueio e por pessoa (ok)'
+
+-- Passado o prazo, volta a funcionar; e um codigo certo zera o historico.
+reset role;
+update public.join_attempts
+set locked_until = now() - interval '1 minute', last_fail_at = now() - interval '16 minutes'
+where user_id = '44444444-4444-4444-4444-444444444444';
+set role authenticated;
+set test.user_id = '44444444-4444-4444-4444-444444444444';
+
+do $$
+declare r public.couples; fails int;
+begin
+  r := public.join_couple(current_setting('test.code_a'));
+  assert r.id = current_setting('test.couple_a')::uuid, 'FALHA: codigo certo nao entrou apos o prazo';
+end $$;
+
+reset role;
+do $$
+declare fails int;
+begin
+  select fail_count into fails from public.join_attempts
+  where user_id = '44444444-4444-4444-4444-444444444444';
+  assert fails = 0, format('FALHA: codigo certo nao zerou o historico (%s)', fails);
+end $$;
+set role authenticated;
+set test.user_id = '33333333-3333-3333-3333-333333333333';
+\echo '-> prazo vencido libera e codigo certo zera o historico (ok)'
 
 -- Nome de categoria duplicado (mesmo com caixa diferente) e barrado.
 set test.user_id = '11111111-1111-1111-1111-111111111111';

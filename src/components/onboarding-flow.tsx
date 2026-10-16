@@ -3,7 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { useCouple, useCreateCouple, useJoinCouple } from '@/hooks/use-couple';
+import {
+  InviteCodeNotFoundError,
+  useCouple,
+  useCreateCouple,
+  useJoinCouple,
+} from '@/hooks/use-couple';
 import { maskAmountInput, parseAmountToCents } from '@/lib/money';
 import { Button, Field, Input, Notice, Spinner } from './ui';
 import { InviteCodeCard } from './invite-code-card';
@@ -187,7 +192,11 @@ export function OnboardingFlow() {
 
         {joinCouple.isError && (
           <Notice>
-            Código não encontrado. Confira as 6 letras — ele não diferencia maiúsculas.
+            {(joinCouple.error as { code?: string }).code === 'P0003'
+              ? 'Muitas tentativas erradas. Espere uns 15 minutos e tente de novo.'
+              : joinCouple.error instanceof InviteCodeNotFoundError
+                ? 'Código não encontrado. Confira as 6 letras — ele não diferencia maiúsculas.'
+                : 'Não deu para entrar agora. Confira a conexão e tente de novo.'}
           </Notice>
         )}
 
