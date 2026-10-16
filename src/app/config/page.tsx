@@ -12,7 +12,7 @@ export default function ConfigPage() {
     <main className="mx-auto max-w-lg px-5 py-12">
       <h1 className="text-2xl font-bold">Falta conectar o banco de dados</h1>
       <p className="mt-2 text-muted">
-        O Fincouple guarda os dados do casal no Supabase. Configure estas duas variáveis de
+        O Pairly guarda os dados do casal no Supabase. Configure estas duas variáveis de
         ambiente e recarregue:
       </p>
 

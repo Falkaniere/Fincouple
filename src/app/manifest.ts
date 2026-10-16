@@ -3,8 +3,8 @@ import type { MetadataRoute } from 'next';
 /** Servido em /manifest.webmanifest — é o que permite instalar na tela inicial. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Fincouple — controle do casal',
-    short_name: 'Fincouple',
+    name: 'Pairly — controle do casal',
+    short_name: 'Pairly',
     description: 'Controle financeiro compartilhado para casais.',
     start_url: '/',
     scope: '/',

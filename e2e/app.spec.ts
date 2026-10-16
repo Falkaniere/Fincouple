@@ -509,12 +509,12 @@ test('exporta planilha e PDF do mês', async ({ page }) => {
   const xlsxDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Planilha' }).click();
   const xlsx = await xlsxDownload;
-  expect(xlsx.suggestedFilename()).toMatch(/^fincouple-\d{4}-\d{2}\.xlsx$/);
+  expect(xlsx.suggestedFilename()).toMatch(/^pairly-\d{4}-\d{2}\.xlsx$/);
 
   const pdfDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'PDF' }).click();
   const pdf = await pdfDownload;
-  expect(pdf.suggestedFilename()).toMatch(/^fincouple-\d{4}-\d{2}\.pdf$/);
+  expect(pdf.suggestedFilename()).toMatch(/^pairly-\d{4}-\d{2}\.pdf$/);
 });
 
 test('alterar o limite em Ajustes muda a barra da tela inicial', async ({ page }) => {
@@ -593,5 +593,5 @@ test('sem sessão, o app manda para o login', async ({ page, context }) => {
   await context.clearCookies();
   await page.goto('/');
   await expect(page).toHaveURL(/\/login/);
-  await expect(page.getByRole('heading', { name: 'Fincouple' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pairly' })).toBeVisible();
 });

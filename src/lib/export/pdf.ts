@@ -204,7 +204,7 @@ function drawFooter(doc: jsPDF): void {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...MUTED);
-    doc.text('Gerado pelo Fincouple', MARGIN, pageHeight - 24);
+    doc.text('Gerado pelo Pairly', MARGIN, pageHeight - 24);
     doc.text(`${page} de ${pages}`, pageWidth - MARGIN, pageHeight - 24, { align: 'right' });
   }
 }

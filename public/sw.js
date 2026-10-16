@@ -1,5 +1,5 @@
 /**
- * Service worker do Fincouple.
+ * Service worker do Pairly.
  *
  * Escopo de propósito modesto: o app é de dados ao vivo e compartilhados entre
  * dois celulares, então servir lançamentos velhos do cache seria pior do que
@@ -9,7 +9,7 @@
  * Nada de dado do casal passa por este cache.
  */
 
-const CACHE = 'fincouple-shell-v1';
+const CACHE = 'pairly-shell-v1';
 const OFFLINE_URL = '/offline';
 
 const SHELL = [

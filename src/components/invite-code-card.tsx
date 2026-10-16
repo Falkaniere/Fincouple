@@ -14,7 +14,7 @@ export function InviteCodeCard({ couple }: { couple: Couple }) {
   const [copied, setCopied] = useState(false);
 
   const message =
-    `Entrei no Fincouple pra gente controlar nossos gastos juntos. ` +
+    `Entrei no Pairly pra gente controlar nossos gastos juntos. ` +
     `Abra ${siteUrl()} e use o código ${couple.invite_code}.`;
 
   async function copy() {
@@ -33,7 +33,7 @@ export function InviteCodeCard({ couple }: { couple: Couple }) {
     // navigator.share é o caminho nativo no celular; no desktop cai no WhatsApp Web.
     if (typeof navigator !== 'undefined' && 'share' in navigator) {
       try {
-        await navigator.share({ title: 'Fincouple', text: message });
+        await navigator.share({ title: 'Pairly', text: message });
         return;
       } catch {
         // Compartilhamento cancelado pela pessoa: não é erro.

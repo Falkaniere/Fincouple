@@ -85,7 +85,7 @@ function summarySheet(payload: ExportPayload) {
   const { summary, couple, monthLabel } = payload;
 
   const rows = [
-    [{ value: `Fincouple — ${couple.name}`, ...HEADER }, null],
+    [{ value: `Pairly — ${couple.name}`, ...HEADER }, null],
     [{ value: 'Mês', type: String }, { value: monthLabel, type: String }],
     [],
     [{ value: 'Receitas', type: String }, { value: reais(summary.incomeCents), type: Number, format: MONEY_FORMAT }],
