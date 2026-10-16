@@ -589,6 +589,33 @@ test('importa gastos de um extrato em csv, com categoria sugerida', async ({ pag
   await expect(page.getByLabel('Saldo do mês')).toContainText('191,40');
 });
 
+test('código de convite errado avisa e, depois de 5 erros, bloqueia as tentativas', async ({
+  page,
+}) => {
+  await page.goto('/login');
+  await page.getByLabel('Seu email').fill('jonatas@example.com');
+  await page.getByRole('button', { name: 'Receber link de acesso' }).click();
+  await page.goto('/auth/callback?code=codigo-de-teste');
+  await expect(page.getByRole('heading', { name: 'Vamos começar' })).toBeVisible();
+  await page.getByRole('button', { name: 'Já tenho um código' }).click();
+
+  const codigo = page.getByLabel('Código do casal');
+  const entrar = page.getByRole('button', { name: 'Entrar no controle' });
+
+  await codigo.fill('ZZZZZZ');
+  await entrar.click();
+  await expect(page.getByText('Código não encontrado')).toBeVisible();
+
+  for (let i = 0; i < 4; i += 1) {
+    await entrar.click();
+    await expect(entrar).toBeEnabled();
+  }
+
+  // A 6ª tentativa já encontra o bloqueio.
+  await entrar.click();
+  await expect(page.getByText('Muitas tentativas erradas')).toBeVisible();
+});
+
 test('sem sessão, o app manda para o login', async ({ page, context }) => {
   await context.clearCookies();
   await page.goto('/');
