@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -116,6 +117,18 @@ export function LoginForm() {
         >
           Receber link de acesso
         </Button>
+
+        <p className="text-center text-xs text-muted">
+          Ao continuar, você concorda com os{' '}
+          <Link href="/termos" className="underline">
+            Termos de Uso
+          </Link>{' '}
+          e a{' '}
+          <Link href="/privacidade" className="underline">
+            Política de Privacidade
+          </Link>
+          .
+        </p>
       </form>
     </>
   );

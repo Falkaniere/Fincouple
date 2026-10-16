@@ -5,7 +5,7 @@ import { publicOrigin } from '@/lib/origin';
 import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from '@/lib/supabase/env';
 
 /** Rotas que podem ser abertas sem sessão. */
-const PUBLIC_PATHS = ['/login', '/auth', '/config'];
+const PUBLIC_PATHS = ['/login', '/auth', '/config', '/termos', '/privacidade'];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
