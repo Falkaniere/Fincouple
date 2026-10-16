@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useApp } from './app-shell';
@@ -123,6 +124,16 @@ export function SettingsScreen() {
             )}
           </div>
         </section>
+
+        <p className="px-1 pb-2 text-center text-xs text-muted">
+          <Link href="/termos" className="underline">
+            Termos de Uso
+          </Link>
+          {' · '}
+          <Link href="/privacidade" className="underline">
+            Política de Privacidade
+          </Link>
+        </p>
       </div>
     </>
   );

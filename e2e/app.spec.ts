@@ -616,6 +616,25 @@ test('código de convite errado avisa e, depois de 5 erros, bloqueia as tentativ
   await expect(page.getByText('Muitas tentativas erradas')).toBeVisible();
 });
 
+test('termos e privacidade abrem sem login, a partir do rodapé da tela de entrada', async ({
+  page,
+  context,
+}) => {
+  await context.clearCookies();
+  await page.goto('/login');
+
+  await page.getByRole('link', { name: 'Termos de Uso' }).click();
+  await expect(page).toHaveURL(/\/termos$/);
+  await expect(page.getByRole('heading', { name: 'Termos de Uso', level: 1 })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Política de Privacidade' }).click();
+  await expect(page).toHaveURL(/\/privacidade$/);
+  await expect(
+    page.getByRole('heading', { name: 'Política de Privacidade', level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'jfsdever@gmail.com' }).first()).toBeVisible();
+});
+
 test('sem sessão, o app manda para o login', async ({ page, context }) => {
   await context.clearCookies();
   await page.goto('/');
