@@ -1,4 +1,4 @@
--- Fincouple - schema inicial
+-- Pairly - schema inicial
 -- Controle financeiro compartilhado por casal.
 -- Todo valor monetario e guardado em centavos (integer) para nao haver erro de ponto flutuante.
 

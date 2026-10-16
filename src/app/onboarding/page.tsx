@@ -1,7 +1,7 @@
 import { OnboardingFlow } from '@/components/onboarding-flow';
 import { Providers } from '@/components/providers';
 
-export const metadata = { title: 'Começar · Fincouple' };
+export const metadata = { title: 'Começar · Pairly' };
 
 export default function OnboardingPage() {
   return (

@@ -79,7 +79,7 @@ export function LoginForm() {
         <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-brand text-white">
           <HeartIcon className="size-7" />
         </div>
-        <h1 className="mt-5 text-3xl font-bold tracking-tight">Fincouple</h1>
+        <h1 className="mt-5 text-3xl font-bold tracking-tight">Pairly</h1>
         <p className="mt-2 text-muted">O controle de gastos de vocês dois, no mesmo lugar.</p>
       </div>
 

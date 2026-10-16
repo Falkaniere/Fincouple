@@ -5,9 +5,9 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PGBIN="${PGBIN:-/usr/lib/postgresql/16/bin}"
-PGDATA="${PGDATA:-/tmp/pgdata-fincouple}"
+PGDATA="${PGDATA:-/tmp/pgdata-pairly}"
 SOCK=/tmp
-DB=fincouple_test
+DB=pairly_test
 
 if [ ! -d "$PGDATA" ]; then
   rm -rf "$PGDATA"; mkdir -p "$PGDATA"
@@ -18,7 +18,7 @@ fi
 if ! su postgres -c "$PGBIN/pg_ctl -D $PGDATA status" >/dev/null 2>&1; then
   su postgres -c "$PGBIN/pg_ctl -D $PGDATA \
     -o '-c listen_addresses= -c unix_socket_directories=$SOCK -c wal_level=logical' \
-    -l /tmp/pg-fincouple.log start" >/dev/null
+    -l /tmp/pg-pairly.log start" >/dev/null
   sleep 1
 fi
 

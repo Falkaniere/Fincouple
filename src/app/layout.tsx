@@ -11,12 +11,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Fincouple',
+  title: 'Pairly',
   description: 'Controle financeiro compartilhado para casais.',
-  applicationName: 'Fincouple',
+  applicationName: 'Pairly',
   appleWebApp: {
     capable: true,
-    title: 'Fincouple',
+    title: 'Pairly',
     statusBarStyle: 'default',
   },
   formatDetection: { telephone: false },

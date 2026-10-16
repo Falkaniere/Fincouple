@@ -1,4 +1,4 @@
-# Fincouple
+# Pairly
 
 Controle financeiro compartilhado para casais. Os dois entram no mesmo
 controle: o que um lança aparece no celular do outro em segundos.

@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { LoginForm } from '@/components/login-form';
 import { Spinner } from '@/components/ui';
 
-export const metadata = { title: 'Entrar · Fincouple' };
+export const metadata = { title: 'Entrar · Pairly' };
 
 export default function LoginPage() {
   return (

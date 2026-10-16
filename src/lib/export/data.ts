@@ -45,7 +45,7 @@ export function categoryName(payload: ExportPayload, categoryId: string | null):
   return payload.categoriesById.get(categoryId)?.name ?? 'Sem categoria';
 }
 
-/** Nome de arquivo previsível e ordenável: "fincouple-2026-09.xlsx". */
+/** Nome de arquivo previsível e ordenável: "pairly-2026-09.xlsx". */
 export function exportFileName(month: MonthKey, extension: 'xlsx' | 'pdf'): string {
-  return `fincouple-${month}.${extension}`;
+  return `pairly-${month}.${extension}`;
 }
